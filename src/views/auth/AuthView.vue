@@ -101,10 +101,7 @@ async function handleRegister() {
       <el-icon><component :is="themeStore.theme === 'dark' ? 'Sunny' : 'Moon'" /></el-icon>
     </div>
 
-    <!-- 背景漂浮光斑动画 -->
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
+    <!-- 背景由全局点阵波浪（App.vue）提供 -->
 
     <div class="auth-card">
       <!-- 左侧品牌区 -->
@@ -238,7 +235,7 @@ async function handleRegister() {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: var(--tn-bg);
+  background: transparent;
 }
 
 /* 主题切换按钮 */
@@ -265,38 +262,6 @@ async function handleRegister() {
 .theme-toggle:hover {
   transform: translateY(-2px) rotate(12deg);
   box-shadow: var(--tn-glow);
-}
-
-/* 背景光斑 */
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  animation: float 14s ease-in-out infinite;
-}
-.blob-1 {
-  width: 420px;
-  height: 420px;
-  background: var(--tn-aurora-1);
-  top: -90px;
-  left: -70px;
-}
-.blob-2 {
-  width: 340px;
-  height: 340px;
-  background: var(--tn-aurora-3);
-  bottom: -70px;
-  right: 8%;
-  animation-delay: -4s;
-}
-.blob-3 {
-  width: 300px;
-  height: 300px;
-  background: var(--tn-aurora-2);
-  top: 38%;
-  right: -50px;
-  animation-delay: -8s;
 }
 
 .auth-card {

@@ -11,215 +11,227 @@ Determine the default path for components and styles.
 If default path for components is not /components/ui, provide instructions on why it's important to create this folder
 Copy-paste this component to /components/ui folder:
 ```tsx
-background-paths.tsx
-"use client";
+dotted-surface.tsx
+'use client';
+import { cn } from '@/lib/utils';
+import { useTheme } from 'next-themes';
+import React, { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'>;
 
-function FloatingPaths({ position }: { position: number }) {
-    const paths = Array.from({ length: 36 }, (_, i) => ({
-        id: i,
-        d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${
-            380 - i * 5 * position
-        } -${189 + i * 6} -${312 - i * 5 * position} ${216 - i * 6} ${
-            152 - i * 5 * position
-        } ${343 - i * 6}C${616 - i * 5 * position} ${470 - i * 6} ${
-            684 - i * 5 * position
-        } ${875 - i * 6} ${684 - i * 5 * position} ${875 - i * 6}`,
-        color: `rgba(15,23,42,${0.1 + i * 0.03})`,
-        width: 0.5 + i * 0.03,
-    }));
+export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
+	const { theme } = useTheme();
 
-    return (
-        <div className="absolute inset-0 pointer-events-none">
-            <svg
-                className="w-full h-full text-slate-950 dark:text-white"
-                viewBox="0 0 696 316"
-                fill="none"
-            >
-                <title>Background Paths</title>
-                {paths.map((path) => (
-                    <motion.path
-                        key={path.id}
-                        d={path.d}
-                        stroke="currentColor"
-                        strokeWidth={path.width}
-                        strokeOpacity={0.1 + path.id * 0.03}
-                        initial={{ pathLength: 0.3, opacity: 0.6 }}
-                        animate={{
-                            pathLength: 1,
-                            opacity: [0.3, 0.6, 0.3],
-                            pathOffset: [0, 1, 0],
-                        }}
-                        transition={{
-                            duration: 20 + Math.random() * 10,
-                            repeat: Number.POSITIVE_INFINITY,
-                            ease: "linear",
-                        }}
-                    />
-                ))}
-            </svg>
-        </div>
-    );
-}
+	const containerRef = useRef<HTMLDivElement>(null);
+	const sceneRef = useRef<{
+		scene: THREE.Scene;
+		camera: THREE.PerspectiveCamera;
+		renderer: THREE.WebGLRenderer;
+		particles: THREE.Points[];
+		animationId: number;
+		count: number;
+	} | null>(null);
 
-export function BackgroundPaths({
-    title = "Background Paths",
-}: {
-    title?: string;
-}) {
-    const words = title.split(" ");
+	useEffect(() => {
+		if (!containerRef.current) return;
 
-    return (
-        <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-white dark:bg-neutral-950">
-            <div className="absolute inset-0">
-                <FloatingPaths position={1} />
-                <FloatingPaths position={-1} />
-            </div>
+		const SEPARATION = 150;
+		const AMOUNTX = 40;
+		const AMOUNTY = 60;
 
-            <div className="relative z-10 container mx-auto px-4 md:px-6 text-center">
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 2 }}
-                    className="max-w-4xl mx-auto"
-                >
-                    <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold mb-8 tracking-tighter">
-                        {words.map((word, wordIndex) => (
-                            <span
-                                key={wordIndex}
-                                className="inline-block mr-4 last:mr-0"
-                            >
-                                {word.split("").map((letter, letterIndex) => (
-                                    <motion.span
-                                        key={`${wordIndex}-${letterIndex}`}
-                                        initial={{ y: 100, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        transition={{
-                                            delay:
-                                                wordIndex * 0.1 +
-                                                letterIndex * 0.03,
-                                            type: "spring",
-                                            stiffness: 150,
-                                            damping: 25,
-                                        }}
-                                        className="inline-block text-transparent bg-clip-text 
-                                        bg-gradient-to-r from-neutral-900 to-neutral-700/80 
-                                        dark:from-white dark:to-white/80"
-                                    >
-                                        {letter}
-                                    </motion.span>
-                                ))}
-                            </span>
-                        ))}
-                    </h1>
+		// Scene setup
+		const scene = new THREE.Scene();
+		scene.fog = new THREE.Fog(0xffffff, 2000, 10000);
 
-                    <div
-                        className="inline-block group relative bg-gradient-to-b from-black/10 to-white/10 
-                        dark:from-white/10 dark:to-black/10 p-px rounded-2xl backdrop-blur-lg 
-                        overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
-                    >
-                        <Button
-                            variant="ghost"
-                            className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md 
-                            bg-white/95 hover:bg-white/100 dark:bg-black/95 dark:hover:bg-black/100 
-                            text-black dark:text-white transition-all duration-300 
-                            group-hover:-translate-y-0.5 border border-black/10 dark:border-white/10
-                            hover:shadow-md dark:hover:shadow-neutral-800/50"
-                        >
-                            <span className="opacity-90 group-hover:opacity-100 transition-opacity">
-                                Discover Excellence
-                            </span>
-                            <span
-                                className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 
-                                transition-all duration-300"
-                            >
-                                →
-                            </span>
-                        </Button>
-                    </div>
-                </motion.div>
-            </div>
-        </div>
-    );
+		const camera = new THREE.PerspectiveCamera(
+			60,
+			window.innerWidth / window.innerHeight,
+			1,
+			10000,
+		);
+		camera.position.set(0, 355, 1220);
+
+		const renderer = new THREE.WebGLRenderer({
+			alpha: true,
+			antialias: true,
+		});
+		renderer.setPixelRatio(window.devicePixelRatio);
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.setClearColor(scene.fog.color, 0);
+
+		containerRef.current.appendChild(renderer.domElement);
+
+		// Create particles
+		const particles: THREE.Points[] = [];
+		const positions: number[] = [];
+		const colors: number[] = [];
+
+		// Create geometry for all particles
+		const geometry = new THREE.BufferGeometry();
+
+		for (let ix = 0; ix < AMOUNTX; ix++) {
+			for (let iy = 0; iy < AMOUNTY; iy++) {
+				const x = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+				const y = 0; // Will be animated
+				const z = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+
+				positions.push(x, y, z);
+				if (theme === 'dark') {
+					colors.push(200, 200, 200);
+				} else {
+					colors.push(0, 0, 0);
+				}
+			}
+		}
+
+		geometry.setAttribute(
+			'position',
+			new THREE.Float32BufferAttribute(positions, 3),
+		);
+		geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+		// Create material
+		const material = new THREE.PointsMaterial({
+			size: 8,
+			vertexColors: true,
+			transparent: true,
+			opacity: 0.8,
+			sizeAttenuation: true,
+		});
+
+		// Create points object
+		const points = new THREE.Points(geometry, material);
+		scene.add(points);
+
+		let count = 0;
+		let animationId: number;
+
+		// Animation function
+		const animate = () => {
+			animationId = requestAnimationFrame(animate);
+
+			const positionAttribute = geometry.attributes.position;
+			const positions = positionAttribute.array as Float32Array;
+
+			let i = 0;
+			for (let ix = 0; ix < AMOUNTX; ix++) {
+				for (let iy = 0; iy < AMOUNTY; iy++) {
+					const index = i * 3;
+
+					// Animate Y position with sine waves
+					positions[index + 1] =
+						Math.sin((ix + count) * 0.3) * 50 +
+						Math.sin((iy + count) * 0.5) * 50;
+
+					i++;
+				}
+			}
+
+			positionAttribute.needsUpdate = true;
+
+			// Update point sizes based on wave
+			const customMaterial = material as THREE.PointsMaterial & {
+				uniforms?: any;
+			};
+			if (!customMaterial.uniforms) {
+				// For dynamic size changes, we'd need a custom shader
+				// For now, keeping constant size for performance
+			}
+
+			renderer.render(scene, camera);
+			count += 0.1;
+		};
+
+		// Handle window resize
+		const handleResize = () => {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		};
+
+		window.addEventListener('resize', handleResize);
+
+		// Start animation
+		animate();
+
+		// Store references
+		sceneRef.current = {
+			scene,
+			camera,
+			renderer,
+			particles: [points],
+			animationId,
+			count,
+		};
+
+		// Cleanup function
+		return () => {
+			window.removeEventListener('resize', handleResize);
+
+			if (sceneRef.current) {
+				cancelAnimationFrame(sceneRef.current.animationId);
+
+				// Clean up Three.js objects
+				sceneRef.current.scene.traverse((object) => {
+					if (object instanceof THREE.Points) {
+						object.geometry.dispose();
+						if (Array.isArray(object.material)) {
+							object.material.forEach((material) => material.dispose());
+						} else {
+							object.material.dispose();
+						}
+					}
+				});
+
+				sceneRef.current.renderer.dispose();
+
+				if (containerRef.current && sceneRef.current.renderer.domElement) {
+					containerRef.current.removeChild(
+						sceneRef.current.renderer.domElement,
+					);
+				}
+			}
+		};
+	}, [theme]);
+
+	return (
+		<div
+			ref={containerRef}
+			className={cn('pointer-events-none fixed inset-0 -z-1', className)}
+			{...props}
+		/>
+	);
 }
 
 
 demo.tsx
-import { BackgroundPaths } from "@/components/ui/background-paths"
+import { DottedSurface } from "@/components/ui/dotted-surface";
+import { cn } from '@/lib/utils';
 
-
-export function DemoBackgroundPaths() {
-    return <BackgroundPaths title="Background Paths" />
+export default function DemoOne() {
+ return (
+		<DottedSurface className="size-full">
+			<div className="absolute inset-0 flex items-center justify-center">
+				<div
+					aria-hidden="true"
+					className={cn(
+						'pointer-events-none absolute -top-10 left-1/2 size-full -translate-x-1/2 rounded-full',
+						'bg-[radial-gradient(ellipse_at_center,--theme(--color-foreground/.1),transparent_50%)]',
+						'blur-[30px]',
+					)}
+				/>
+				<h1 className="font-mono text-4xl font-semibold">Dotted Surface</h1>
+			</div>
+		</DottedSurface>
+	);
 }
-```
-
-Copy-paste these files for dependencies:
-```tsx
-shadcn/button
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@/lib/utils"
-
-const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  },
-)
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
-}
-
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
-  },
-)
-Button.displayName = "Button"
-
-export { Button, buttonVariants }
 
 ```
 
 Install NPM dependencies:
 ```bash
-framer-motion, @radix-ui/react-slot, class-variance-authority
+three, next-themes
 ```
 
 Implementation Guidelines
