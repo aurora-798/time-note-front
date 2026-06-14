@@ -1,0 +1,243 @@
+/* ============================================================
+   时光笔录 · 深邃极光（Aurora）主题系统
+   :root           -> 亮色（默认）
+   html[data-theme="dark"] -> 暗色
+   组件只引用语义变量，切换主题无需改组件
+   ============================================================ */
+
+:root {
+  /* 极光基色（亮暗共用的「色相」，亮度由各主题的渐变/光晕控制） */
+  --tn-aurora-1: #7c5cff; /* 紫 */
+  --tn-aurora-2: #3ad6ff; /* 青 */
+  --tn-aurora-3: #ff5fa2; /* 品红 */
+
+  /* 品牌主色 + 渐变 */
+  --tn-primary: #6d5dfc;
+  --tn-primary-soft: #8a7cff;
+  --tn-accent: #ff8a65;
+  --tn-gradient-primary: linear-gradient(135deg, #7c5cff 0%, #6d8bff 45%, #3ad6ff 100%);
+  --tn-gradient-accent: linear-gradient(135deg, #ff8a65 0%, #ff5fa2 100%);
+  --tn-gradient-aurora: linear-gradient(120deg, #7c5cff, #3ad6ff, #ff5fa2);
+
+  /* === 亮色主题 === */
+  --tn-bg: #eef0fb;
+  --tn-bg-solid: #f5f6fb;
+  --tn-card: #ffffff;
+
+  /* 玻璃层 */
+  --tn-glass: rgba(255, 255, 255, 0.72);
+  --tn-glass-strong: rgba(255, 255, 255, 0.85);
+  --tn-glass-border: rgba(255, 255, 255, 0.7);
+  --tn-glass-blur: 18px;
+
+  /* 文字层 */
+  --tn-text: #2c2c3a;
+  --tn-text-soft: #6b6b80;
+  --tn-text-faint: #9a9ab0;
+  --tn-border: #ececf3;
+
+  /* 光晕 / 阴影 */
+  --tn-glow: 0 12px 40px rgba(124, 92, 255, 0.18);
+  --tn-glow-strong: 0 18px 50px rgba(124, 92, 255, 0.32);
+  --tn-shadow: 0 10px 30px rgba(76, 70, 130, 0.1);
+  --tn-shadow-lift: 0 22px 48px rgba(76, 70, 130, 0.18);
+
+  /* 极光背景三团光斑的不透明度（亮色更柔和） */
+  --tn-aurora-alpha: 0.35;
+
+  --el-color-primary: #6d5dfc;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === 暗色主题 === */
+html[data-theme='dark'] {
+  --tn-bg: #0d0b1f;
+  --tn-bg-solid: #100d24;
+  --tn-card: #1a1733;
+
+  --tn-glass: rgba(30, 27, 56, 0.55);
+  --tn-glass-strong: rgba(34, 30, 64, 0.78);
+  --tn-glass-border: rgba(255, 255, 255, 0.1);
+  --tn-glass-blur: 20px;
+
+  --tn-text: #ecebfa;
+  --tn-text-soft: #a9a7c8;
+  --tn-text-faint: #6f6c93;
+  --tn-border: rgba(255, 255, 255, 0.08);
+
+  --tn-glow: 0 12px 44px rgba(124, 92, 255, 0.3);
+  --tn-glow-strong: 0 20px 60px rgba(58, 214, 255, 0.35);
+  --tn-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  --tn-shadow-lift: 0 26px 56px rgba(0, 0, 0, 0.6);
+
+  --tn-aurora-alpha: 0.55;
+
+  --el-color-primary: #8a7cff;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  color: var(--tn-text);
+  background: var(--tn-bg-solid);
+  transition: background-color 0.45s ease, color 0.45s ease;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+p {
+  margin: 0;
+}
+
+/* 明暗切换时让色彩平滑过渡（限定常见属性，避免影响 transform 动画） */
+.tn-themed,
+.glass-card,
+.aurora-bg {
+  transition: background-color 0.45s ease, color 0.45s ease,
+    border-color 0.45s ease, box-shadow 0.45s ease;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--tn-aurora-1), var(--tn-aurora-2));
+  border-radius: 8px;
+  opacity: 0.4;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(var(--tn-aurora-1), var(--tn-aurora-3));
+}
+
+/* ============================================================
+   工具类：极光背景
+   ============================================================ */
+.aurora-bg {
+  position: relative;
+  background: var(--tn-bg);
+  isolation: isolate;
+}
+.aurora-bg::before,
+.aurora-bg::after {
+  content: '';
+  position: absolute;
+  inset: -20% -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 40% at 18% 22%, var(--tn-aurora-1) 0%, transparent 60%),
+    radial-gradient(36% 36% at 82% 18%, var(--tn-aurora-2) 0%, transparent 60%),
+    radial-gradient(44% 44% at 70% 82%, var(--tn-aurora-3) 0%, transparent 62%),
+    radial-gradient(34% 34% at 28% 84%, var(--tn-aurora-2) 0%, transparent 60%);
+  opacity: var(--tn-aurora-alpha);
+  filter: blur(60px) saturate(120%);
+  animation: aurora-shift 22s ease-in-out infinite;
+}
+.aurora-bg::after {
+  animation-duration: 30s;
+  animation-direction: reverse;
+  opacity: calc(var(--tn-aurora-alpha) * 0.7);
+}
+
+/* ============================================================
+   工具类：玻璃卡
+   ============================================================ */
+.glass-card {
+  background: var(--tn-glass);
+  backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
+  border: 1px solid var(--tn-glass-border);
+  box-shadow: var(--tn-shadow);
+  border-radius: 20px;
+}
+
+/* 渐变文字 */
+.tn-gradient-text {
+  background: var(--tn-gradient-aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================================
+   动效 keyframes
+   ============================================================ */
+@keyframes aurora-shift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(3%, -4%, 0) scale(1.08) rotate(4deg);
+  }
+  66% {
+    transform: translate3d(-3%, 3%, 0) scale(1.04) rotate(-3deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -30px) scale(1.08);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: var(--tn-glow);
+  }
+  50% {
+    box-shadow: var(--tn-glow-strong);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 路由切换过渡 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
