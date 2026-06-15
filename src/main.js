@@ -9,9 +9,11 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { bootstrapTheme } from './store/theme'
+import { bootstrapSeason } from './store/season'
 
-// 在挂载前应用主题，避免首屏闪白
+// 在挂载前应用主题与季节背景，避免首屏闪白
 bootstrapTheme()
+bootstrapSeason()
 
 const app = createApp(App)
 
