@@ -94,6 +94,15 @@ onMounted(reload)
 </template>
 
 <style scoped>
+.bookshelf {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bookshelf::-webkit-scrollbar {
+  display: none;
+}
 
 .shelf-grid {
   display: grid;

@@ -28,9 +28,6 @@ const tag = computed(() => {
     :class="notebook.encrypted ? 'is-encrypted' : 'is-private'"
     @click="emit('open', notebook)"
   >
-    <!-- 悬停时从书脊后侧滑出的书名 -->
-    <span class="nb-side-name">{{ notebook.name }}</span>
-
     <!-- 封面 -->
     <div
       class="nb-cover"
@@ -147,35 +144,6 @@ const tag = computed(() => {
 }
 .notebook:active {
   transform: perspective(1200px) rotateX(0.4deg) rotateY(-0.4deg) scale(0.998);
-}
-
-/* —— 悬停侧边书名 —— */
-.nb-side-name {
-  position: absolute;
-  left: -9px;
-  top: 18px;
-  z-index: -2;
-  writing-mode: vertical-rl;
-  padding: 10px 7px;
-  border-radius: 0 10px 10px 0;
-  background: linear-gradient(180deg, var(--primary-color), #c45d7a);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  max-height: calc(100% - 36px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateX(0);
-  box-shadow: -4px 6px 12px rgba(196, 93, 122, 0.4);
-  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.3s;
-  pointer-events: none;
-}
-.notebook:hover .nb-side-name {
-  opacity: 1;
-  transform: translateX(-100%);
 }
 
 /* —— 封面 —— */

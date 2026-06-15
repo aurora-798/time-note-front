@@ -14,6 +14,7 @@ const userStore = useUserStore()
 const seasonStore = useSeasonStore()
 
 const avatarText = computed(() => userStore.displayName.charAt(0).toUpperCase())
+const showSeasonDock = computed(() => route.name !== 'book-view')
 
 const links = [
   { path: '/diary', label: '我的日记', cls: 'pill-diary' },
@@ -53,7 +54,6 @@ onMounted(() => {
 <template>
   <div class="diary-shell">
     <SeasonBackground />
-
     <!-- 顶部导航 -->
     <nav class="lala-navbar">
       <div class="navbar-inner">
@@ -112,21 +112,27 @@ onMounted(() => {
       </div>
     </nav>
 
-    <main class="lala-main">
-      <router-view v-slot="{ Component }">
-        <transition name="fade-slide" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
+    <main class="lala-main" :class="{ 'no-dock': !showSeasonDock }">
+      <div class="main-body">
+        <router-view v-slot="{ Component }">
+          <transition name="fade-slide" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
+      </div>
     </main>
 
-    <SeasonDock />
+    <SeasonDock v-if="showSeasonDock" />
   </div>
 </template>
 
 <style scoped>
 .diary-shell {
-  min-height: 100vh;
+  --nav-h: 76px;
+  /* 四季按钮占位：底部预留高度，避免内容与按钮上下重叠 */
+  --dock-zone-h: 108px;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -271,13 +277,34 @@ onMounted(() => {
 
 .lala-main {
   flex: 1;
+  min-height: 0;
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 28px 64px;
+  padding: 0 28px var(--dock-zone-h);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lala-main.no-dock {
+  --dock-zone-h: 28px;
+}
+.main-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.main-body > * {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
+  .diary-shell {
+    --nav-h: 64px;
+  }
   .navbar-inner {
     height: 64px;
     padding: 0 16px;

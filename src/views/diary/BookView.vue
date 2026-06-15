@@ -55,7 +55,12 @@ function closeBook() {
 // 点击日记本以外的区域（翻页控制、返回按钮除外）时合上
 function onBackdropClick(e) {
   if (!opened.value) return
-  if (e.target.closest('.book') || e.target.closest('.page-nav') || e.target.closest('.back-btn')) {
+  if (
+    e.target.closest('.book') ||
+    e.target.closest('.page-nav') ||
+    e.target.closest('.book-actions') ||
+    e.target.closest('.back-btn')
+  ) {
     return
   }
   closeBook()
@@ -115,10 +120,38 @@ onMounted(load)
 
 <template>
   <div v-if="book" class="book-view" :style="{ '--book-font': bookFont }" @click="onBackdropClick">
-    <button class="back-btn" @click="router.push('/diary')">
-      <el-icon><Back /></el-icon> 返回书架
-    </button>
+    <!-- 顶栏：返回按钮（左） + 日记操作 + 翻页控件（右，打开后显示）-->
+    <div class="top-bar">
+      <button class="back-btn" @click="router.push('/diary')">
+        <el-icon><Back /></el-icon> 返回书架
+      </button>
+      <div v-if="opened" class="top-actions">
+        <div class="book-actions">
+          <button class="action-btn" @click="writeNew">
+            <el-icon><Plus /></el-icon> 写新日记
+          </button>
+          <template v-if="current">
+            <button class="action-btn" @click="editCurrent">
+              <el-icon><EditPen /></el-icon> 编辑
+            </button>
+            <button class="action-btn danger" @click="removeCurrent">
+              <el-icon><Delete /></el-icon> 删除
+            </button>
+          </template>
+        </div>
+        <div v-if="entries.length" class="page-nav">
+          <button :disabled="index === 0" @click="flipTo(index - 1)">
+            <el-icon><ArrowLeft /></el-icon>
+          </button>
+          <span class="page-indicator">{{ index + 1 }} / {{ entries.length }}</span>
+          <button :disabled="index >= entries.length - 1" @click="flipTo(index + 1)">
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+        </div>
+      </div>
+    </div>
 
+    <div class="stage-wrap">
     <div class="book-stage" :class="{ opened }">
       <div class="book" :class="{ opened }">
         <!-- 右页（内容）—— 位置固定，翻页时露出底层新内容 -->
@@ -133,12 +166,6 @@ onMounted(load)
                 </div>
               </div>
               <div class="entry-content">{{ current.content }}</div>
-              <div class="entry-actions">
-                <button @click="editCurrent"><el-icon><EditPen /></el-icon> 编辑</button>
-                <button class="danger" @click="removeCurrent">
-                  <el-icon><Delete /></el-icon> 删除
-                </button>
-              </div>
             </template>
             <div v-else class="entry-empty" @click="writeNew">
               <span class="empty-emoji">✍️</span>
@@ -195,24 +222,11 @@ onMounted(load)
                   <span class="toc-date">{{ fmtDate(e) }}</span>
                 </li>
               </ul>
-              <button class="write-btn" @click.stop="writeNew">
-                <el-icon><Plus /></el-icon> 写新日记
-              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- 翻页控制 -->
-    <div v-if="opened && entries.length" class="page-nav">
-      <button :disabled="index === 0" @click="flipTo(index - 1)">
-        <el-icon><ArrowLeft /></el-icon>
-      </button>
-      <span class="page-indicator">{{ index + 1 }} / {{ entries.length }}</span>
-      <button :disabled="index >= entries.length - 1" @click="flipTo(index + 1)">
-        <el-icon><ArrowRight /></el-icon>
-      </button>
     </div>
   </div>
 </template>
@@ -223,12 +237,17 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
   min-height: 70vh;
 }
+.top-bar {
+  width: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 0;
+}
 .back-btn {
-  position: absolute;
-  top: 0;
-  left: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -246,17 +265,51 @@ onMounted(load)
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(230, 126, 154, 0.3);
 }
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.book-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.2s;
+}
+.action-btn:hover {
+  border-color: var(--accent-pink);
+  color: var(--primary-color);
+}
+.action-btn.danger:hover {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
 
 /* ============================================================
    3D 书本舞台
    ============================================================ */
-.book-stage {
-  /* 统一的“自然减速”缓动：起步干脆、收尾轻柔，避免中段忽快忽慢 */
+.stage-wrap {
   --ease-book: cubic-bezier(0.22, 0.61, 0.36, 1);
+  width: 90%;
+  margin: 12px auto 0;
+}
+.book-stage {
   perspective: 2200px;
-  margin: 40px auto 0;
-  width: min(880px, 92vw);
-  height: min(560px, 70vh);
+  width: 100%;
+  /* 保持原有 560px / 70vh，同时在矮视口时限制高度，避免底部与四季按钮重叠 */
+  height: min(560px, 70vh, calc(100vh - var(--nav-h, 76px) - var(--dock-zone-h, 108px) - 72px));
   display: flex;
   justify-content: center;
 }
@@ -289,7 +342,7 @@ onMounted(load)
   box-shadow: inset 0 0 40px rgba(180, 140, 120, 0.08);
   overflow: hidden;
 }
-/* 横线纸纹理 */
+/* 横线纸纹理（合上时保留，打开后隐藏正文横线）*/
 .page::before {
   content: '';
   position: absolute;
@@ -299,6 +352,11 @@ onMounted(load)
     rgba(120, 90, 110, 0.08) 31px 32px
   );
   pointer-events: none;
+}
+.book.opened .page-right::before,
+.book.opened .leaf::before,
+.book.opened .cover-back::before {
+  display: none;
 }
 .page-right {
   left: 0;
@@ -430,27 +488,6 @@ onMounted(load)
   font-size: 11px;
   color: var(--text-light);
 }
-.write-btn {
-  margin-top: 14px;
-  padding: 10px;
-  border: none;
-  border-radius: 12px;
-  background: var(--gradient-primary);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(230, 126, 154, 0.3);
-  transition: 0.2s;
-}
-.write-btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
-}
-
 /* —— 右页：内容 —— */
 .entry-head {
   display: flex;
@@ -480,32 +517,6 @@ onMounted(load)
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-y: auto;
-}
-.entry-actions {
-  display: flex;
-  gap: 10px;
-  padding-top: 12px;
-}
-.entry-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 7px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
-  background: #fff;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  transition: 0.2s;
-}
-.entry-actions button:hover {
-  border-color: var(--accent-pink);
-  color: var(--primary-color);
-}
-.entry-actions .danger:hover {
-  border-color: var(--danger-color);
-  color: var(--danger-color);
 }
 .entry-empty {
   margin: auto;
@@ -658,19 +669,30 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 28px;
 }
 .page-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 42px;
   height: 42px;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.85);
   color: var(--primary-color);
   cursor: pointer;
   font-size: 16px;
+  line-height: 1;
   box-shadow: 0 4px 14px rgba(230, 126, 154, 0.22);
   transition: 0.2s;
+}
+.page-nav button :deep(.el-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 18px;
 }
 .page-nav button:hover:not(:disabled) {
   transform: translateY(-2px);
