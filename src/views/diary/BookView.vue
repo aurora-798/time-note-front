@@ -2,11 +2,12 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ArrowRight, Back, EditPen, Plus, Delete, Search } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Back, EditPen, Plus, Delete, Search, Check } from '@element-plus/icons-vue'
 import {
   getNotebook,
   listEntries,
   deleteEntry,
+  saveEntry,
   coverPreset,
   fontFamily,
 } from '@/services/notebooks'
@@ -23,6 +24,7 @@ const flipDir = ref('') // 'next' | 'prev'
 const flipping = ref(false)
 const leafContentPage = ref(null) // 正文翻页动画时，书页上停留的页码
 const FLIP_MS = 900
+const TITLE_MAX_LEN = 15    // 限制日记字数最大的限制
 
 const searchQuery = ref('')
 const tocPage = ref(0)
@@ -31,6 +33,11 @@ const tocPageSize = ref(6)
 const contentPages = ref([''])
 const entryContentRef = ref(null)
 const tocListRef = ref(null)
+const titleInputRef = ref(null)
+
+const editMode = ref(null) // null | 'new' | 'edit'
+const draftTitle = ref('')
+const draftContent = ref('')
 
 let contentObserver = null
 let tocObserver = null
@@ -63,6 +70,7 @@ const tocPageItems = computed(() => {
 
 const contentTotalPages = computed(() => Math.max(1, contentPages.value.length))
 const contentSlice = computed(() => contentPages.value[contentPage.value] || '')
+const isEditing = computed(() => editMode.value !== null)
 
 function splitTextToPages(text, container) {
   if (!text) return ['']
@@ -116,6 +124,10 @@ function splitTextToPages(text, container) {
 }
 
 function rebuildContentPages() {
+  if (isEditing.value) {
+    contentPages.value = ['']
+    return
+  }
   contentPages.value = splitTextToPages(current.value?.content || '', entryContentRef.value)
 }
 
@@ -180,9 +192,22 @@ watch(opened, (isOpen) => {
   if (isOpen) nextTick(bindLayoutObservers)
 })
 
-watch(() => current.value?.content, scheduleLayoutSync)
+watch(() => current.value?.content, () => {
+  if (!isEditing.value) scheduleLayoutSync()
+})
 watch(filteredEntries, scheduleLayoutSync)
 watch(tocPageItems, () => nextTick(updateTocPageSize))
+
+watch([draftTitle, draftContent, editMode], () => {
+  if (!editMode.value) return
+  const entry = entries.value[index.value]
+  if (!entry) return
+  entries.value[index.value] = {
+    ...entry,
+    title: draftTitle.value,
+    content: draftContent.value,
+  }
+})
 
 const coverStyle = computed(() => {
   if (!book.value) return {}
@@ -253,6 +278,7 @@ function flipTocPage(target) {
 }
 
 function flipTo(target) {
+  if (editMode.value) return
   if (target < 0 || target >= entries.value.length || target === index.value) return
   flipping.value = false
   flipDir.value = ''
@@ -261,11 +287,87 @@ function flipTo(target) {
   contentPage.value = 0
 }
 
-function writeNew() {
-  router.push(`/diary/book/${bookId}/write`)
+function createLocalDraft() {
+  const now = Date.now()
+  return {
+    id: `local-${now}`,
+    bookId,
+    title: '',
+    content: '',
+    mood: '😊',
+    date: new Date(now).toISOString().slice(0, 10),
+    createTime: now,
+    updateTime: now,
+    _local: true,
+  }
 }
+
+function writeNew() {
+  if (editMode.value) return
+  if (!opened.value) opened.value = true
+  entries.value.unshift(createLocalDraft())
+  searchQuery.value = ''
+  tocPage.value = 0
+  index.value = 0
+  contentPage.value = 0
+  editMode.value = 'new'
+  draftTitle.value = ''
+  draftContent.value = ''
+  nextTick(() => titleInputRef.value?.focus())
+}
+
 function editCurrent() {
-  if (current.value) router.push(`/diary/book/${bookId}/entry/${current.value.id}/edit`)
+  if (!current.value || editMode.value) return
+  editMode.value = 'edit'
+  draftTitle.value = current.value.title || ''
+  draftContent.value = current.value.content || ''
+  contentPage.value = 0
+  nextTick(() => titleInputRef.value?.focus())
+}
+
+function saveDraft() {
+  const title = draftTitle.value.trim()
+  const content = draftContent.value.trim()
+  if (title.length > TITLE_MAX_LEN) {
+    ElMessage.warning(`日记标题不能超过 ${TITLE_MAX_LEN} 个字`)
+    return
+  }
+  if (!title && !content) {
+    ElMessage.warning('写点什么再保存吧')
+    return
+  }
+  const entry = current.value
+  if (!entry) return
+
+  const mode = editMode.value
+  let savedId = entry.id
+
+  if (mode === 'new') {
+    const saved = saveEntry(
+      bookId,
+      { title, content: draftContent.value, mood: entry.mood || '😊' },
+      { prepend: true }
+    )
+    savedId = saved.id
+  } else {
+    saveEntry(bookId, {
+      id: entry.id,
+      title,
+      content: draftContent.value,
+      mood: entry.mood,
+      date: entry.date,
+    })
+  }
+
+  editMode.value = null
+  draftTitle.value = ''
+  draftContent.value = ''
+  load()
+  const savedIdx = entries.value.findIndex((e) => e.id === savedId)
+  index.value = savedIdx >= 0 ? savedIdx : 0
+  if (mode === 'new') tocPage.value = 0
+  ElMessage.success('保存成功')
+  nextTick(scheduleLayoutSync)
 }
 async function removeCurrent() {
   if (!current.value) return
@@ -304,28 +406,40 @@ onUnmounted(() => {
       </button>
       <div class="top-actions" :class="{ visible: opened }">
         <div class="book-actions">
-          <button class="action-btn" @click="writeNew">
-            <el-icon><Plus /></el-icon> 写新日记
+          <button
+            class="action-btn"
+            :class="{ primary: editMode === 'new' }"
+            :disabled="editMode === 'edit'"
+            @click="editMode === 'new' ? saveDraft() : writeNew()"
+          >
+            <el-icon><component :is="editMode === 'new' ? Check : Plus" /></el-icon>
+            {{ editMode === 'new' ? '保存' : '写新日记' }}
           </button>
           <template v-if="current">
-            <button class="action-btn" @click="editCurrent">
-              <el-icon><EditPen /></el-icon> 编辑
+            <button
+              class="action-btn"
+              :class="{ primary: editMode === 'edit' }"
+              :disabled="editMode === 'new'"
+              @click="editMode === 'edit' ? saveDraft() : editCurrent()"
+            >
+              <el-icon><component :is="editMode === 'edit' ? Check : EditPen" /></el-icon>
+              {{ editMode === 'edit' ? '保存' : '编辑' }}
             </button>
-            <button class="action-btn danger" @click="removeCurrent">
+            <button class="action-btn danger" :disabled="isEditing" @click="removeCurrent">
               <el-icon><Delete /></el-icon> 删除
             </button>
           </template>
         </div>
         <div class="content-nav">
           <button
-            :disabled="!current || flipping || contentPage === 0"
+            :disabled="!current || isEditing || flipping || contentPage === 0"
             @click="flipContentPage(contentPage - 1)"
           >
             <el-icon><ArrowLeft /></el-icon>
           </button>
           <span class="nav-indicator">{{ contentPage + 1 }} / {{ contentTotalPages }}</span>
           <button
-            :disabled="!current || flipping || contentPage >= contentTotalPages - 1"
+            :disabled="!current || isEditing || flipping || contentPage >= contentTotalPages - 1"
             @click="flipContentPage(contentPage + 1)"
           >
             <el-icon><ArrowRight /></el-icon>
@@ -343,12 +457,28 @@ onUnmounted(() => {
             <template v-if="current">
               <div class="entry-head">
                 <span class="entry-mood">{{ current.mood || '📖' }}</span>
-                <div>
-                  <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
+                <div class="entry-head-text">
+                  <input
+                    v-if="isEditing"
+                    ref="titleInputRef"
+                    v-model="draftTitle"
+                    class="entry-title-input"
+                    placeholder="这里用于书写日记名称"
+                    :maxlength="TITLE_MAX_LEN"
+                    @click.stop
+                  />
+                  <h3 v-else class="entry-title">{{ current.title || '无标题' }}</h3>
                   <span class="entry-date">{{ fmtDate(current) }}</span>
                 </div>
               </div>
-              <div ref="entryContentRef" class="entry-content">{{ contentSlice }}</div>
+              <textarea
+                v-if="isEditing"
+                v-model="draftContent"
+                class="entry-content-input"
+                placeholder="这里用于书写笔记内容"
+                @click.stop
+              />
+              <div v-else ref="entryContentRef" class="entry-content">{{ contentSlice }}</div>
             </template>
             <div v-else class="entry-empty" @click="writeNew">
               <span class="empty-emoji">✍️</span>
@@ -399,6 +529,7 @@ onUnmounted(() => {
                   placeholder="搜索标题、内容、日期…"
                   clearable
                   :prefix-icon="Search"
+                  :disabled="isEditing"
                 />
               </div>
               <div ref="tocListRef" class="toc-body">
@@ -406,23 +537,25 @@ onUnmounted(() => {
                   <li
                     v-for="{ entry: e, index: i } in tocPageItems"
                     :key="e.id"
-                    :class="{ active: i === index }"
+                    :class="{ active: i === index, 'no-click': isEditing }"
                     @click.stop="flipTo(i)"
                   >
                     <span class="toc-dot" />
-                    <span class="toc-title">{{ e.title || '无标题' }}</span>
+                    <span class="toc-title">{{
+                      isEditing && i === index && !e.title ? '未命名' : e.title || '无标题'
+                    }}</span>
                     <span class="toc-date">{{ fmtDate(e) }}</span>
                   </li>
                 </ul>
                 <p v-else class="toc-empty">未找到匹配日记</p>
               </div>
               <div v-if="filteredEntries.length" class="toc-nav" @click.stop>
-                <button :disabled="tocPage === 0" @click="flipTocPage(tocPage - 1)">
+                <button :disabled="isEditing || tocPage === 0" @click="flipTocPage(tocPage - 1)">
                   <el-icon><ArrowLeft /></el-icon>
                 </button>
                 <span class="nav-indicator">{{ tocPage + 1 }} / {{ tocTotalPages }}</span>
                 <button
-                  :disabled="tocPage >= tocTotalPages - 1"
+                  :disabled="isEditing || tocPage >= tocTotalPages - 1"
                   @click="flipTocPage(tocPage + 1)"
                 >
                   <el-icon><ArrowRight /></el-icon>
@@ -506,6 +639,21 @@ onUnmounted(() => {
   border-color: var(--accent-pink);
   color: var(--primary-color);
 }
+.action-btn.primary {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: #fff;
+}
+.action-btn.primary:hover {
+  border-color: var(--primary-color);
+  color: #fff;
+  filter: brightness(1.05);
+}
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .action-btn.danger:hover {
   border-color: var(--danger-color);
   color: var(--danger-color);
@@ -516,7 +664,7 @@ onUnmounted(() => {
    ============================================================ */
 .stage-wrap {
   --ease-book: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --cover-open-angle: 135deg; /* 设置日记本的翻开到的角度 */
+  --cover-open-angle: 170deg; /* 设置日记本的翻开到的角度 */
   flex: 1;
   min-height: 0;
   width: 90%;
@@ -703,6 +851,15 @@ onUnmounted(() => {
 .toc li.active {
   background: rgba(230, 126, 154, 0.16);
 }
+.toc li.no-click {
+  cursor: default;
+}
+.toc li.no-click:hover {
+  background: transparent;
+}
+.toc li.no-click.active {
+  background: rgba(230, 126, 154, 0.16);
+}
 .toc-dot {
   width: 7px;
   height: 7px;
@@ -833,6 +990,27 @@ onUnmounted(() => {
   font-weight: 800;
   color: var(--text-color);
 }
+.entry-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.entry-title-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-color);
+  font-family: inherit;
+  outline: none;
+}
+.entry-title-input::placeholder {
+  color: var(--text-light);
+  font-weight: 600;
+}
 .entry-date {
   font-size: 12px;
   color: var(--text-light);
@@ -851,6 +1029,25 @@ onUnmounted(() => {
 }
 .entry-content::-webkit-scrollbar {
   display: none;
+}
+.entry-content-input {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin-top: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: 15px;
+  line-height: 2;
+  color: var(--text-primary);
+  font-family: inherit;
+  outline: none;
+  overflow: hidden;
+}
+.entry-content-input::placeholder {
+  color: var(--text-light);
 }
 .leaf .entry-content {
   overflow: hidden;

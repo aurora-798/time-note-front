@@ -257,7 +257,7 @@ export function getEntry(bookId, entryId) {
   return listEntries(bookId).find((e) => e.id === entryId) || null
 }
 
-export function saveEntry(bookId, entry) {
+export function saveEntry(bookId, entry, { prepend = false } = {}) {
   // TODO: POST/PUT /api/diary（带 bookId）
   const entries = read(nsKey(`entries:${bookId}`), [])
   const now = Date.now()
@@ -280,7 +280,8 @@ export function saveEntry(bookId, entry) {
     createTime: now,
     updateTime: now,
   }
-  entries.push(created)
+  if (prepend) entries.unshift(created)
+  else entries.push(created)
   write(nsKey(`entries:${bookId}`), entries)
   return created
 }
