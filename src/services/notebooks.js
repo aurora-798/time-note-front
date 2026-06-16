@@ -76,6 +76,85 @@ function obfuscate(str) {
   }
 }
 
+const DEMO_MOODS = ['😊', '🌧️', '📖', '☀️', '🌙', '🍃', '✨', '🌸', '🍊', '🦄']
+
+/** 生成长正文，用于测试正文分页（约 280 字/页） */
+function longContent(pages = 5) {
+  const paragraph =
+    '今天走在校园里，阳光透过树叶洒下斑驳的光影。我停下脚步，深吸一口气，感受着微风拂过脸颊的温柔。这样的时刻总让人想写点什么，把心里的感受慢慢记录下来，留给未来的自己回顾。'
+  const targetLen = pages * 280
+  let text = ''
+  while (text.length < targetLen) {
+    text += paragraph
+    if (text.length < targetLen) text += '\n\n'
+  }
+  return text
+}
+
+/** 生成足够触发目录分页（>8 篇）与正文分页的演示条目 */
+function buildPaginationDemoEntries(bookId, baseTime, count = 22) {
+  const entries = []
+  for (let i = 0; i < count; i++) {
+    const t = baseTime - i * 3600000 * 6
+    const day = new Date(t).toISOString().slice(0, 10)
+    entries.push({
+      id: uid(),
+      bookId,
+      title: `测试日记 ${String(i + 1).padStart(2, '0')}`,
+      content:
+        i === 0
+          ? longContent(5)
+          : `这是第 ${i + 1} 篇日记，用于测试左侧目录的分页与搜索功能。日期：${day}。`,
+      mood: DEMO_MOODS[i % DEMO_MOODS.length],
+      date: day,
+      createTime: t,
+      updateTime: t,
+    })
+  }
+  return entries
+}
+
+function ensurePaginationDemoData() {
+  const flag = nsKey('pagination-demo-v1')
+  if (localStorage.getItem(flag)) return
+
+  ensureSeed()
+  const books = read(nsKey('books'), [])
+  if (!books.length) {
+    localStorage.setItem(flag, '1')
+    return
+  }
+
+  const bookId = books[0].id
+  let entries = read(nsKey(`entries:${bookId}`), [])
+  const targetCount = 22
+
+  if (entries.length < targetCount) {
+    const baseTime = Date.now()
+    const start = entries.length
+    const extra = buildPaginationDemoEntries(bookId, baseTime - start * 3600000 * 6, targetCount - start)
+    extra.forEach((e, i) => {
+      e.title = `测试日记 ${String(start + i + 1).padStart(2, '0')}`
+      e.content =
+        start + i === 0 && entries.length === 0
+          ? longContent(5)
+          : `这是第 ${start + i + 1} 篇日记，用于测试左侧目录的分页与搜索功能。`
+    })
+    entries = [...entries, ...extra]
+  }
+
+  if (entries.length && entries[0].content.length < 600) {
+    entries[0] = {
+      ...entries[0],
+      title: entries[0].title || '长文测试：新的开始',
+      content: longContent(5),
+    }
+  }
+
+  write(nsKey(`entries:${bookId}`), entries)
+  localStorage.setItem(flag, '1')
+}
+
 function ensureSeed() {
   const seededFlag = nsKey('seeded')
   if (localStorage.getItem(seededFlag)) return
@@ -103,28 +182,19 @@ function ensureSeed() {
     },
   ]
   write(nsKey('books'), books)
-  write(nsKey(`entries:${books[0].id}`), [
+  write(nsKey(`entries:${books[0].id}`), buildPaginationDemoEntries(books[0].id, now))
+  write(nsKey(`entries:${books[1].id}`), [
     {
       id: uid(),
-      bookId: books[0].id,
-      title: '新的开始',
-      content:
-        '每一天，都是新的开始。让我们用文字，记录每一个新的起点，每一次新的尝试，每一份新的成长。',
-      mood: '😊',
-      date: new Date(now).toISOString().slice(0, 10),
-      createTime: now,
-      updateTime: now,
+      bookId: books[1].id,
+      title: '海边的早晨',
+      content: longContent(4),
+      mood: '🌊',
+      date: new Date(now - 86400000).toISOString().slice(0, 10),
+      createTime: now - 86400000,
+      updateTime: now - 86400000,
     },
-    {
-      id: uid(),
-      bookId: books[0].id,
-      title: '雨后的傍晚',
-      content: '傍晚下了一场小雨，空气里都是泥土和青草的味道，很喜欢这样的天气。',
-      mood: '🌧️',
-      date: new Date(now - 3600000).toISOString().slice(0, 10),
-      createTime: now - 3600000,
-      updateTime: now - 3600000,
-    },
+    ...buildPaginationDemoEntries(books[1].id, now - 86400000 * 2, 10),
   ])
   localStorage.setItem(seededFlag, '1')
 }
@@ -178,6 +248,7 @@ export function verifyNotebookPassword(id, password) {
 // —— 日记条目 CRUD（隶属某个日记本）——
 
 export function listEntries(bookId) {
+  ensurePaginationDemoData()
   // TODO: return request.get('/api/diary/page', { params:{ bookId } })
   return read(nsKey(`entries:${bookId}`), []).sort((a, b) => b.createTime - a.createTime)
 }

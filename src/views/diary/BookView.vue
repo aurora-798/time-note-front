@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ArrowRight, Back, EditPen, Plus, Delete } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Back, EditPen, Plus, Delete, Search } from '@element-plus/icons-vue'
 import {
   getNotebook,
   listEntries,
@@ -21,13 +21,168 @@ const opened = ref(false)
 const index = ref(0)
 const flipDir = ref('') // 'next' | 'prev'
 const flipping = ref(false)
-const leafEntry = ref(null) // 翻页时停留在“活动书页”上的内容
+const leafContentPage = ref(null) // 正文翻页动画时，书页上停留的页码
 const FLIP_MS = 900
+
+const searchQuery = ref('')
+const tocPage = ref(0)
+const contentPage = ref(0)
+const tocPageSize = ref(6)
+const contentPages = ref([''])
+const entryContentRef = ref(null)
+const tocListRef = ref(null)
+
+let contentObserver = null
+let tocObserver = null
 
 const preset = computed(() => (book.value ? coverPreset(book.value.cover) : null))
 const isCustom = computed(() => book.value?.coverType === 'custom')
 const bookFont = computed(() => (book.value ? fontFamily(book.value.font) : 'inherit'))
 const current = computed(() => entries.value[index.value] || null)
+
+const filteredEntries = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  const list = entries.value.map((entry, i) => ({ entry, index: i }))
+  if (!q) return list
+  return list.filter(({ entry }) => {
+    const title = (entry.title || '').toLowerCase()
+    const content = (entry.content || '').toLowerCase()
+    const date = (entry.date || '').toLowerCase()
+    return title.includes(q) || content.includes(q) || date.includes(q)
+  })
+})
+
+const tocTotalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredEntries.value.length / tocPageSize.value))
+)
+
+const tocPageItems = computed(() => {
+  const start = tocPage.value * tocPageSize.value
+  return filteredEntries.value.slice(start, start + tocPageSize.value)
+})
+
+const contentTotalPages = computed(() => Math.max(1, contentPages.value.length))
+const contentSlice = computed(() => contentPages.value[contentPage.value] || '')
+
+function splitTextToPages(text, container) {
+  if (!text) return ['']
+  if (!container || container.clientHeight <= 0) {
+    const fallback = []
+    for (let i = 0; i < text.length; i += 280) fallback.push(text.slice(i, i + 280))
+    return fallback.length ? fallback : ['']
+  }
+
+  const width = container.clientWidth
+  const maxHeight = container.clientHeight
+  const style = getComputedStyle(container)
+  const measure = document.createElement('div')
+  measure.style.cssText = [
+    'position:fixed',
+    'visibility:hidden',
+    'pointer-events:none',
+    'left:-9999px',
+    'top:0',
+    'white-space:pre-wrap',
+    'word-break:break-word',
+    `width:${width}px`,
+    `font-size:${style.fontSize}`,
+    `line-height:${style.lineHeight}`,
+    `font-family:${style.fontFamily}`,
+    `font-weight:${style.fontWeight}`,
+  ].join(';')
+  document.body.appendChild(measure)
+
+  const pages = []
+  let rest = text
+  while (rest.length > 0) {
+    let lo = 1
+    let hi = rest.length
+    let best = 1
+    while (lo <= hi) {
+      const mid = Math.ceil((lo + hi) / 2)
+      measure.textContent = rest.slice(0, mid)
+      if (measure.scrollHeight <= maxHeight) {
+        best = mid
+        lo = mid + 1
+      } else {
+        hi = mid - 1
+      }
+    }
+    pages.push(rest.slice(0, best))
+    rest = rest.slice(best)
+  }
+  measure.remove()
+  return pages.length ? pages : ['']
+}
+
+function rebuildContentPages() {
+  contentPages.value = splitTextToPages(current.value?.content || '', entryContentRef.value)
+}
+
+function updateTocPageSize() {
+  const list = tocListRef.value
+  if (!list || list.clientHeight <= 0) return
+  const sample = list.querySelector('li')
+  const itemH = sample ? sample.offsetHeight + 2 : 42
+  const next = Math.max(1, Math.floor(list.clientHeight / itemH))
+  if (next === tocPageSize.value) return
+  const anchor = tocPage.value * tocPageSize.value
+  tocPageSize.value = next
+  tocPage.value = Math.min(Math.floor(anchor / next), Math.max(0, tocTotalPages.value - 1))
+}
+
+function scheduleLayoutSync() {
+  nextTick(() => {
+    updateTocPageSize()
+    rebuildContentPages()
+    if (contentPage.value >= contentTotalPages.value) {
+      contentPage.value = Math.max(0, contentTotalPages.value - 1)
+    }
+    if (tocPage.value >= tocTotalPages.value) {
+      tocPage.value = Math.max(0, tocTotalPages.value - 1)
+    }
+  })
+}
+
+function bindLayoutObservers() {
+  contentObserver?.disconnect()
+  tocObserver?.disconnect()
+  if (entryContentRef.value) {
+    contentObserver = new ResizeObserver(scheduleLayoutSync)
+    contentObserver.observe(entryContentRef.value)
+  }
+  if (tocListRef.value) {
+    tocObserver = new ResizeObserver(scheduleLayoutSync)
+    tocObserver.observe(tocListRef.value)
+  }
+  scheduleLayoutSync()
+}
+
+watch(searchQuery, () => {
+  tocPage.value = 0
+})
+
+watch(
+  () => index.value,
+  (idx) => {
+    contentPage.value = 0
+    const pos = filteredEntries.value.findIndex((item) => item.index === idx)
+    if (pos >= 0) tocPage.value = Math.floor(pos / tocPageSize.value)
+    scheduleLayoutSync()
+  }
+)
+
+watch(contentTotalPages, (total) => {
+  if (contentPage.value >= total) contentPage.value = Math.max(0, total - 1)
+})
+
+watch(opened, (isOpen) => {
+  if (isOpen) nextTick(bindLayoutObservers)
+})
+
+watch(() => current.value?.content, scheduleLayoutSync)
+watch(filteredEntries, scheduleLayoutSync)
+watch(tocPageItems, () => nextTick(updateTocPageSize))
 
 const coverStyle = computed(() => {
   if (!book.value) return {}
@@ -57,7 +212,9 @@ function onBackdropClick(e) {
   if (!opened.value) return
   if (
     e.target.closest('.book') ||
-    e.target.closest('.page-nav') ||
+    e.target.closest('.content-nav') ||
+    e.target.closest('.toc-nav') ||
+    e.target.closest('.toc-search') ||
     e.target.closest('.book-actions') ||
     e.target.closest('.back-btn')
   ) {
@@ -70,26 +227,38 @@ function fmtDate(e) {
   return e?.date || ''
 }
 
-function flipTo(target) {
+function flipContentPage(target) {
   if (flipping.value) return
-  if (target < 0 || target >= entries.value.length || target === index.value) return
-  const dir = target > index.value ? 'next' : 'prev'
+  if (target < 0 || target >= contentTotalPages.value || target === contentPage.value) return
+  const dir = target > contentPage.value ? 'next' : 'prev'
   flipDir.value = dir
   flipping.value = true
   if (dir === 'next') {
-    // 旧内容留在翻动的书页上，底层右页立即换成新内容（被书页盖住）
-    leafEntry.value = entries.value[index.value]
-    index.value = target
+    leafContentPage.value = contentPage.value
+    contentPage.value = target
   } else {
-    // 上一页：翻动的书页带着新内容从左侧合回到右页
-    leafEntry.value = entries.value[target]
+    leafContentPage.value = target
   }
   setTimeout(() => {
-    if (dir === 'prev') index.value = target
+    if (dir === 'prev') contentPage.value = target
     flipping.value = false
     flipDir.value = ''
-    leafEntry.value = null
+    leafContentPage.value = null
   }, FLIP_MS)
+}
+
+function flipTocPage(target) {
+  if (target < 0 || target >= tocTotalPages.value) return
+  tocPage.value = target
+}
+
+function flipTo(target) {
+  if (target < 0 || target >= entries.value.length || target === index.value) return
+  flipping.value = false
+  flipDir.value = ''
+  leafContentPage.value = null
+  index.value = target
+  contentPage.value = 0
 }
 
 function writeNew() {
@@ -115,7 +284,15 @@ async function removeCurrent() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  nextTick(bindLayoutObservers)
+})
+
+onUnmounted(() => {
+  contentObserver?.disconnect()
+  tocObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -125,7 +302,7 @@ onMounted(load)
       <button class="back-btn" @click="router.push('/diary')">
         <el-icon><Back /></el-icon> 返回书架
       </button>
-      <div v-if="opened" class="top-actions">
+      <div class="top-actions" :class="{ visible: opened }">
         <div class="book-actions">
           <button class="action-btn" @click="writeNew">
             <el-icon><Plus /></el-icon> 写新日记
@@ -139,12 +316,18 @@ onMounted(load)
             </button>
           </template>
         </div>
-        <div v-if="entries.length" class="page-nav">
-          <button :disabled="index === 0" @click="flipTo(index - 1)">
+        <div class="content-nav">
+          <button
+            :disabled="!current || flipping || contentPage === 0"
+            @click="flipContentPage(contentPage - 1)"
+          >
             <el-icon><ArrowLeft /></el-icon>
           </button>
-          <span class="page-indicator">{{ index + 1 }} / {{ entries.length }}</span>
-          <button :disabled="index >= entries.length - 1" @click="flipTo(index + 1)">
+          <span class="nav-indicator">{{ contentPage + 1 }} / {{ contentTotalPages }}</span>
+          <button
+            :disabled="!current || flipping || contentPage >= contentTotalPages - 1"
+            @click="flipContentPage(contentPage + 1)"
+          >
             <el-icon><ArrowRight /></el-icon>
           </button>
         </div>
@@ -165,7 +348,7 @@ onMounted(load)
                   <span class="entry-date">{{ fmtDate(current) }}</span>
                 </div>
               </div>
-              <div class="entry-content">{{ current.content }}</div>
+              <div ref="entryContentRef" class="entry-content">{{ contentSlice }}</div>
             </template>
             <div v-else class="entry-empty" @click="writeNew">
               <span class="empty-emoji">✍️</span>
@@ -174,17 +357,17 @@ onMounted(load)
           </div>
         </div>
 
-        <!-- 翻动的书页（翻页时出现，绕书脊掀起/落下，露出新内容）-->
-        <div v-if="flipping && leafEntry" class="leaf" :class="flipDir">
+        <!-- 翻动的书页（正文翻页时出现，绕书脊掀起/落下，露出新内容）-->
+        <div v-if="flipping && leafContentPage !== null && current" class="leaf" :class="flipDir">
           <div class="page-inner right-inner">
             <div class="entry-head">
-              <span class="entry-mood">{{ leafEntry.mood || '📖' }}</span>
+              <span class="entry-mood">{{ current.mood || '📖' }}</span>
               <div>
-                <h3 class="entry-title">{{ leafEntry.title || '无标题' }}</h3>
-                <span class="entry-date">{{ fmtDate(leafEntry) }}</span>
+                <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
+                <span class="entry-date">{{ fmtDate(current) }}</span>
               </div>
             </div>
-            <div class="entry-content">{{ leafEntry.content }}</div>
+            <div class="entry-content">{{ contentPages[leafContentPage] || '' }}</div>
           </div>
         </div>
 
@@ -210,18 +393,41 @@ onMounted(load)
               <p class="book-sub">{{ entries.length }} 篇 · 创建于
                 {{ new Date(book.createTime).toLocaleDateString() }}
               </p>
-              <ul class="toc">
-                <li
-                  v-for="(e, i) in entries"
-                  :key="e.id"
-                  :class="{ active: i === index }"
-                  @click.stop="flipTo(i)"
+              <div class="toc-search" @click.stop>
+                <el-input
+                  v-model="searchQuery"
+                  placeholder="搜索标题、内容、日期…"
+                  clearable
+                  :prefix-icon="Search"
+                />
+              </div>
+              <div ref="tocListRef" class="toc-body">
+                <ul v-if="tocPageItems.length" class="toc">
+                  <li
+                    v-for="{ entry: e, index: i } in tocPageItems"
+                    :key="e.id"
+                    :class="{ active: i === index }"
+                    @click.stop="flipTo(i)"
+                  >
+                    <span class="toc-dot" />
+                    <span class="toc-title">{{ e.title || '无标题' }}</span>
+                    <span class="toc-date">{{ fmtDate(e) }}</span>
+                  </li>
+                </ul>
+                <p v-else class="toc-empty">未找到匹配日记</p>
+              </div>
+              <div v-if="filteredEntries.length" class="toc-nav" @click.stop>
+                <button :disabled="tocPage === 0" @click="flipTocPage(tocPage - 1)">
+                  <el-icon><ArrowLeft /></el-icon>
+                </button>
+                <span class="nav-indicator">{{ tocPage + 1 }} / {{ tocTotalPages }}</span>
+                <button
+                  :disabled="tocPage >= tocTotalPages - 1"
+                  @click="flipTocPage(tocPage + 1)"
                 >
-                  <span class="toc-dot" />
-                  <span class="toc-title">{{ e.title || '无标题' }}</span>
-                  <span class="toc-date">{{ fmtDate(e) }}</span>
-                </li>
-              </ul>
+                  <el-icon><ArrowRight /></el-icon>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -238,10 +444,12 @@ onMounted(load)
   flex-direction: column;
   align-items: center;
   width: 100%;
-  min-height: 70vh;
+  flex: 1;
+  min-height: 0;
 }
 .top-bar {
   width: 90%;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -269,6 +477,12 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 20px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.top-actions.visible {
+  visibility: visible;
+  pointer-events: auto;
 }
 .book-actions {
   display: flex;
@@ -302,8 +516,14 @@ onMounted(load)
    ============================================================ */
 .stage-wrap {
   --ease-book: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --cover-open-angle: 135deg; /* 设置日记本的翻开到的角度 */
+  flex: 1;
+  min-height: 0;
   width: 90%;
-  margin: 12px auto 0;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .book-stage {
   perspective: 2200px;
@@ -342,22 +562,6 @@ onMounted(load)
   box-shadow: inset 0 0 40px rgba(180, 140, 120, 0.08);
   overflow: hidden;
 }
-/* 横线纸纹理（合上时保留，打开后隐藏正文横线）*/
-.page::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    transparent 0 31px,
-    rgba(120, 90, 110, 0.08) 31px 32px
-  );
-  pointer-events: none;
-}
-.book.opened .page-right::before,
-.book.opened .leaf::before,
-.book.opened .cover-back::before {
-  display: none;
-}
 .page-right {
   left: 0;
   transform-origin: left center;
@@ -371,6 +575,7 @@ onMounted(load)
   font-family: var(--book-font);
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 /* —— 翻动的书页（真实翻页效果）——
@@ -391,16 +596,6 @@ onMounted(load)
   backface-visibility: hidden;
   will-change: transform;
   z-index: 6;
-}
-.leaf::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    transparent 0 31px,
-    rgba(120, 90, 110, 0.08) 31px 32px
-  );
-  pointer-events: none;
 }
 .leaf.next {
   animation: leafNext 0.9s var(--ease-book) forwards;
@@ -443,16 +638,55 @@ onMounted(load)
   color: var(--primary-color);
 }
 .book-sub {
-  margin: 4px 0 16px;
+  margin: 4px 0 12px;
   font-size: 13px;
   color: var(--text-light);
+}
+.toc-search {
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+.toc-search :deep(.el-input__wrapper) {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--border-color) inset;
+}
+.toc-empty {
+  flex: 1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.toc-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
+}
+.toc::-webkit-scrollbar,
+.toc-body::-webkit-scrollbar {
+  display: none;
+}
+.left-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .toc {
   list-style: none;
   margin: 0;
   padding: 0;
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: none;
 }
 .toc li {
   display: flex;
@@ -488,6 +722,100 @@ onMounted(load)
   font-size: 11px;
   color: var(--text-light);
 }
+
+/* —— 目录 / 正文翻页 —— */
+.toc-nav {
+  display: grid;
+  grid-template-columns: 32px 7.5ch 32px;
+  gap: 6px;
+  align-items: center;
+  justify-items: center;
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(180, 140, 120, 0.28);
+}
+.content-nav {
+  display: grid;
+  grid-template-columns: 42px 8.5ch 42px;
+  gap: 8px;
+  align-items: center;
+  justify-items: center;
+  flex-shrink: 0;
+}
+.toc-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 2px 10px rgba(230, 126, 154, 0.18);
+  transition: 0.2s;
+}
+.content-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(230, 126, 154, 0.22);
+  transition: 0.2s;
+}
+.toc-nav button :deep(.el-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 16px;
+}
+.content-nav button :deep(.el-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 18px;
+}
+.toc-nav button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(230, 126, 154, 0.28);
+}
+.content-nav button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(230, 126, 154, 0.32);
+}
+.toc-nav button:disabled,
+.content-nav button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.nav-indicator {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.content-nav .nav-indicator {
+  font-size: 14px;
+}
+
 /* —— 右页：内容 —— */
 .entry-head {
   display: flex;
@@ -511,12 +839,21 @@ onMounted(load)
 }
 .entry-content {
   flex: 1;
+  min-height: 0;
   margin-top: 16px;
   font-size: 15px;
   line-height: 2;
   color: var(--text-primary);
   white-space: pre-wrap;
-  overflow-y: auto;
+  word-break: break-word;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+.entry-content::-webkit-scrollbar {
+  display: none;
+}
+.leaf .entry-content {
+  overflow: hidden;
 }
 .entry-empty {
   margin: auto;
@@ -584,9 +921,9 @@ onMounted(load)
   transform-style: preserve-3d;
   z-index: 5;
 }
-/* 翻到 -180°：背面（目录）正好平铺在左半边，与右页对称 */
+/* 翻到 -150°：左页略向内收，保留书本微张的自然感 */
 .book-cover.open {
-  transform: rotateY(-180deg);
+  transform: rotateY(calc(-1 * var(--cover-open-angle)));
 }
 /* 两个面：各自背面隐藏，转过 90° 时无缝交接 */
 .cover-front,
@@ -615,16 +952,6 @@ onMounted(load)
   border-radius: 10px 4px 4px 10px;
   background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
   box-shadow: inset -18px 0 30px rgba(150, 110, 120, 0.12);
-}
-.cover-back::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    transparent 0 31px,
-    rgba(120, 90, 110, 0.08) 31px 32px
-  );
-  pointer-events: none;
 }
 .cover-emoji {
   font-size: 90px;
@@ -662,50 +989,6 @@ onMounted(load)
     opacity: 1;
     transform: translateY(-3px);
   }
-}
-
-/* —— 翻页控制条 —— */
-.page-nav {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.page-nav button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--primary-color);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  box-shadow: 0 4px 14px rgba(230, 126, 154, 0.22);
-  transition: 0.2s;
-}
-.page-nav button :deep(.el-icon) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  font-size: 18px;
-}
-.page-nav button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(230, 126, 154, 0.32);
-}
-.page-nav button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.page-indicator {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-secondary);
 }
 
 @media (max-width: 768px) {
