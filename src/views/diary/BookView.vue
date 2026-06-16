@@ -2,14 +2,16 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ArrowRight, Back, EditPen, Plus, Delete, Search, Check } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check } from '@element-plus/icons-vue'
 import {
   getNotebook,
   listEntries,
   deleteEntry,
   saveEntry,
-  coverPreset,
+  updateNotebook,
+  notebookCoverUrl,
   fontFamily,
+  pickDemoLocationWeather,
 } from '@/services/notebooks'
 
 const route = useRoute()
@@ -24,26 +26,27 @@ const flipDir = ref('') // 'next' | 'prev'
 const flipping = ref(false)
 const leafContentPage = ref(null) // 正文翻页动画时，书页上停留的页码
 const FLIP_MS = 900
-const TITLE_MAX_LEN = 15    // 限制日记字数最大的限制
+const TITLE_MAX_LEN = 15
+const BOOK_NAME_MAX_LEN = 10
+const TOC_PAGE_SIZE = 7
 
 const searchQuery = ref('')
 const tocPage = ref(0)
 const contentPage = ref(0)
-const tocPageSize = ref(6)
 const contentPages = ref([''])
+const contentAreaHeight = ref(0)
 const entryContentRef = ref(null)
-const tocListRef = ref(null)
+const entryContentInputRef = ref(null)
+const entryContentSlotRef = ref(null)
 const titleInputRef = ref(null)
 
 const editMode = ref(null) // null | 'new' | 'edit'
 const draftTitle = ref('')
 const draftContent = ref('')
+const draftBookName = ref('')
 
 let contentObserver = null
-let tocObserver = null
 
-const preset = computed(() => (book.value ? coverPreset(book.value.cover) : null))
-const isCustom = computed(() => book.value?.coverType === 'custom')
 const bookFont = computed(() => (book.value ? fontFamily(book.value.font) : 'inherit'))
 const current = computed(() => entries.value[index.value] || null)
 
@@ -60,29 +63,48 @@ const filteredEntries = computed(() => {
 })
 
 const tocTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredEntries.value.length / tocPageSize.value))
+  Math.max(1, Math.ceil(filteredEntries.value.length / TOC_PAGE_SIZE))
 )
 
 const tocPageItems = computed(() => {
-  const start = tocPage.value * tocPageSize.value
-  return filteredEntries.value.slice(start, start + tocPageSize.value)
+  const start = tocPage.value * TOC_PAGE_SIZE
+  return filteredEntries.value.slice(start, start + TOC_PAGE_SIZE)
 })
 
 const contentTotalPages = computed(() => Math.max(1, contentPages.value.length))
 const contentSlice = computed(() => contentPages.value[contentPage.value] || '')
+const contentAreaStyle = computed(() =>
+  contentAreaHeight.value > 0 ? { height: `${contentAreaHeight.value}px` } : undefined
+)
 const isEditing = computed(() => editMode.value !== null)
 
-function splitTextToPages(text, container) {
+function contentMetrics() {
+  const el = entryContentRef.value || entryContentInputRef.value || entryContentSlotRef.value
+  if (!el) return { lineHeight: 30 }
+  const style = getComputedStyle(el)
+  const fontSize = parseFloat(style.fontSize) || 15
+  return { lineHeight: parseFloat(style.lineHeight) || fontSize * 2 }
+}
+
+function alignedContentHeight(slotEl) {
+  if (!slotEl || slotEl.clientHeight <= 0) return 0
+  const { lineHeight: lh } = contentMetrics()
+  const lines = Math.max(1, Math.floor(slotEl.clientHeight / lh))
+  return lines * lh
+}
+
+function splitTextToPages(text, container, pageHeight) {
   if (!text) return ['']
-  if (!container || container.clientHeight <= 0) {
+  const height = pageHeight ?? container?.clientHeight ?? 0
+  if (!container || height <= 0) {
     const fallback = []
     for (let i = 0; i < text.length; i += 280) fallback.push(text.slice(i, i + 280))
     return fallback.length ? fallback : ['']
   }
 
   const width = container.clientWidth
-  const maxHeight = container.clientHeight
   const style = getComputedStyle(container)
+  const maxHeight = height
   const measure = document.createElement('div')
   measure.style.cssText = [
     'position:fixed',
@@ -124,28 +146,30 @@ function splitTextToPages(text, container) {
 }
 
 function rebuildContentPages() {
-  if (isEditing.value) {
-    contentPages.value = ['']
-    return
-  }
-  contentPages.value = splitTextToPages(current.value?.content || '', entryContentRef.value)
+  if (isEditing.value) return
+  const slot = entryContentSlotRef.value
+  const content = entryContentRef.value
+  if (!slot) return
+  syncLineAlignedHeights()
+  const pageHeight = contentAreaHeight.value || alignedContentHeight(slot)
+  if (pageHeight <= 0) return
+  contentPages.value = splitTextToPages(current.value?.content || '', content || slot, pageHeight)
 }
 
-function updateTocPageSize() {
-  const list = tocListRef.value
-  if (!list || list.clientHeight <= 0) return
-  const sample = list.querySelector('li')
-  const itemH = sample ? sample.offsetHeight + 2 : 42
-  const next = Math.max(1, Math.floor(list.clientHeight / itemH))
-  if (next === tocPageSize.value) return
-  const anchor = tocPage.value * tocPageSize.value
-  tocPageSize.value = next
-  tocPage.value = Math.min(Math.floor(anchor / next), Math.max(0, tocTotalPages.value - 1))
+function syncLineAlignedHeights() {
+  const slot = entryContentSlotRef.value
+  if (!slot || slot.clientHeight <= 0) return
+  contentAreaHeight.value = alignedContentHeight(slot)
 }
 
 function scheduleLayoutSync() {
   nextTick(() => {
-    updateTocPageSize()
+    if (flipping.value) return
+    if (isEditing.value) {
+      syncLineAlignedHeights()
+      return
+    }
+    syncLineAlignedHeights()
     rebuildContentPages()
     if (contentPage.value >= contentTotalPages.value) {
       contentPage.value = Math.max(0, contentTotalPages.value - 1)
@@ -158,14 +182,10 @@ function scheduleLayoutSync() {
 
 function bindLayoutObservers() {
   contentObserver?.disconnect()
-  tocObserver?.disconnect()
-  if (entryContentRef.value) {
+  const contentEl = entryContentSlotRef.value || entryContentRef.value
+  if (contentEl) {
     contentObserver = new ResizeObserver(scheduleLayoutSync)
-    contentObserver.observe(entryContentRef.value)
-  }
-  if (tocListRef.value) {
-    tocObserver = new ResizeObserver(scheduleLayoutSync)
-    tocObserver.observe(tocListRef.value)
+    contentObserver.observe(contentEl)
   }
   scheduleLayoutSync()
 }
@@ -179,7 +199,7 @@ watch(
   (idx) => {
     contentPage.value = 0
     const pos = filteredEntries.value.findIndex((item) => item.index === idx)
-    if (pos >= 0) tocPage.value = Math.floor(pos / tocPageSize.value)
+    if (pos >= 0) tocPage.value = Math.floor(pos / TOC_PAGE_SIZE)
     scheduleLayoutSync()
   }
 )
@@ -195,25 +215,26 @@ watch(opened, (isOpen) => {
 watch(() => current.value?.content, () => {
   if (!isEditing.value) scheduleLayoutSync()
 })
-watch(filteredEntries, scheduleLayoutSync)
-watch(tocPageItems, () => nextTick(updateTocPageSize))
+watch(filteredEntries, () => {
+  if (!isEditing.value) scheduleLayoutSync()
+})
 
-watch([draftTitle, draftContent, editMode], () => {
-  if (!editMode.value) return
-  const entry = entries.value[index.value]
-  if (!entry) return
-  entries.value[index.value] = {
-    ...entry,
-    title: draftTitle.value,
-    content: draftContent.value,
-  }
+watch(editMode, (mode) => {
+  if (mode !== null) return
+  nextTick(() => {
+    nextTick(() => {
+      bindLayoutObservers()
+      syncLineAlignedHeights()
+      rebuildContentPages()
+    })
+  })
 })
 
 const coverStyle = computed(() => {
   if (!book.value) return {}
-  return isCustom.value
-    ? { backgroundImage: `url(${book.value.cover})` }
-    : { backgroundImage: preset.value.gradient }
+  return {
+    backgroundImage: `url(${notebookCoverUrl(book.value.coverType, book.value.cover)})`,
+  }
 })
 
 function load() {
@@ -232,25 +253,40 @@ function openBook() {
 function closeBook() {
   opened.value = false
 }
-// 点击日记本以外的区域（翻页控制、返回按钮除外）时合上
+// 点击日记本以外的区域（翻页控制除外）时合上
+const BACKDROP_GUARD =
+  '.book, .top-bar, .top-actions, .book-actions, .content-nav, .toc-nav, .toc-search'
+
 function onBackdropClick(e) {
   if (!opened.value) return
-  if (
-    e.target.closest('.book') ||
-    e.target.closest('.content-nav') ||
-    e.target.closest('.toc-nav') ||
-    e.target.closest('.toc-search') ||
-    e.target.closest('.book-actions') ||
-    e.target.closest('.back-btn')
-  ) {
-    return
-  }
+  const nodes = typeof e.composedPath === 'function' ? e.composedPath() : [e.target]
+  if (nodes.some((node) => node instanceof Element && node.closest(BACKDROP_GUARD))) return
   closeBook()
 }
 
 function fmtDate(e) {
   return e?.date || ''
 }
+
+function fmtEntryMeta(e) {
+  const loc = e?.location
+  const w = e?.weather
+  const locStr = loc?.city && loc?.district ? `${loc.city} · ${loc.district}` : ''
+  const weatherStr =
+    w?.condition != null && w?.temperature != null ? `${w.condition} ${w.temperature}°C` : ''
+  if (locStr && weatherStr) return `${locStr} | ${weatherStr}`
+  return locStr || weatherStr
+}
+
+const entryMetaText = computed(() => fmtEntryMeta(current.value))
+
+const CLOSED_GUIDES = [
+  { main: '轻触封面', sub: '翻开属于你的故事' },
+  { main: '纸页在等待', sub: '把今天的心情写进去' },
+  { main: '每一页都是时光', sub: '从这里开始阅读' },
+  { main: '故事尚未开启', sub: '点击封面，打开日记' },
+]
+const closedGuide = computed(() => CLOSED_GUIDES[new Date().getHours() % CLOSED_GUIDES.length])
 
 function flipContentPage(target) {
   if (flipping.value) return
@@ -266,9 +302,11 @@ function flipContentPage(target) {
   }
   setTimeout(() => {
     if (dir === 'prev') contentPage.value = target
-    flipping.value = false
-    flipDir.value = ''
-    leafContentPage.value = null
+    nextTick(() => {
+      flipping.value = false
+      flipDir.value = ''
+      leafContentPage.value = null
+    })
   }, FLIP_MS)
 }
 
@@ -289,17 +327,25 @@ function flipTo(target) {
 
 function createLocalDraft() {
   const now = Date.now()
+  const { location, weather } = pickDemoLocationWeather(now)
   return {
     id: `local-${now}`,
     bookId,
     title: '',
     content: '',
     mood: '😊',
+    location,
+    weather,
     date: new Date(now).toISOString().slice(0, 10),
     createTime: now,
     updateTime: now,
     _local: true,
   }
+}
+
+function enterEditMode(mode) {
+  editMode.value = mode
+  draftBookName.value = book.value?.name || ''
 }
 
 function writeNew() {
@@ -310,7 +356,7 @@ function writeNew() {
   tocPage.value = 0
   index.value = 0
   contentPage.value = 0
-  editMode.value = 'new'
+  enterEditMode('new')
   draftTitle.value = ''
   draftContent.value = ''
   nextTick(() => titleInputRef.value?.focus())
@@ -318,7 +364,7 @@ function writeNew() {
 
 function editCurrent() {
   if (!current.value || editMode.value) return
-  editMode.value = 'edit'
+  enterEditMode('edit')
   draftTitle.value = current.value.title || ''
   draftContent.value = current.value.content || ''
   contentPage.value = 0
@@ -328,6 +374,15 @@ function editCurrent() {
 function saveDraft() {
   const title = draftTitle.value.trim()
   const content = draftContent.value.trim()
+  const bookName = draftBookName.value.trim()
+  if (bookName.length > BOOK_NAME_MAX_LEN) {
+    ElMessage.warning(`日记本名称不能超过 ${BOOK_NAME_MAX_LEN} 个字`)
+    return
+  }
+  if (!bookName) {
+    ElMessage.warning('请填写日记本名称')
+    return
+  }
   if (title.length > TITLE_MAX_LEN) {
     ElMessage.warning(`日记标题不能超过 ${TITLE_MAX_LEN} 个字`)
     return
@@ -342,10 +397,21 @@ function saveDraft() {
   const mode = editMode.value
   let savedId = entry.id
 
+  if (bookName !== book.value?.name) {
+    const updated = updateNotebook(bookId, { name: bookName })
+    if (updated) book.value = updated
+  }
+
   if (mode === 'new') {
     const saved = saveEntry(
       bookId,
-      { title, content: draftContent.value, mood: entry.mood || '😊' },
+      {
+        title,
+        content: draftContent.value,
+        mood: entry.mood || '😊',
+        location: entry.location,
+        weather: entry.weather,
+      },
       { prepend: true }
     )
     savedId = saved.id
@@ -362,12 +428,12 @@ function saveDraft() {
   editMode.value = null
   draftTitle.value = ''
   draftContent.value = ''
+  draftBookName.value = ''
   load()
   const savedIdx = entries.value.findIndex((e) => e.id === savedId)
   index.value = savedIdx >= 0 ? savedIdx : 0
   if (mode === 'new') tocPage.value = 0
   ElMessage.success('保存成功')
-  nextTick(scheduleLayoutSync)
 }
 async function removeCurrent() {
   if (!current.value) return
@@ -393,63 +459,72 @@ onMounted(() => {
 
 onUnmounted(() => {
   contentObserver?.disconnect()
-  tocObserver?.disconnect()
 })
 </script>
 
 <template>
   <div v-if="book" class="book-view" :style="{ '--book-font': bookFont }" @click="onBackdropClick">
-    <!-- 顶栏：返回按钮（左） + 日记操作 + 翻页控件（右，打开后显示）-->
-    <div class="top-bar">
-      <button class="back-btn" @click="router.push('/diary')">
-        <el-icon><Back /></el-icon> 返回书架
-      </button>
-      <div class="top-actions" :class="{ visible: opened }">
-        <div class="book-actions">
-          <button
-            class="action-btn"
-            :class="{ primary: editMode === 'new' }"
-            :disabled="editMode === 'edit'"
-            @click="editMode === 'new' ? saveDraft() : writeNew()"
-          >
-            <el-icon><component :is="editMode === 'new' ? Check : Plus" /></el-icon>
-            {{ editMode === 'new' ? '保存' : '写新日记' }}
-          </button>
-          <template v-if="current">
-            <button
-              class="action-btn"
-              :class="{ primary: editMode === 'edit' }"
-              :disabled="editMode === 'new'"
-              @click="editMode === 'edit' ? saveDraft() : editCurrent()"
-            >
-              <el-icon><component :is="editMode === 'edit' ? Check : EditPen" /></el-icon>
-              {{ editMode === 'edit' ? '保存' : '编辑' }}
-            </button>
-            <button class="action-btn danger" :disabled="isEditing" @click="removeCurrent">
-              <el-icon><Delete /></el-icon> 删除
-            </button>
-          </template>
-        </div>
-        <div class="content-nav">
-          <button
-            :disabled="!current || isEditing || flipping || contentPage === 0"
-            @click="flipContentPage(contentPage - 1)"
-          >
-            <el-icon><ArrowLeft /></el-icon>
-          </button>
-          <span class="nav-indicator">{{ contentPage + 1 }} / {{ contentTotalPages }}</span>
-          <button
-            :disabled="!current || isEditing || flipping || contentPage >= contentTotalPages - 1"
-            @click="flipContentPage(contentPage + 1)"
-          >
-            <el-icon><ArrowRight /></el-icon>
-          </button>
-        </div>
-      </div>
-    </div>
-
     <div class="stage-wrap">
     <div class="book-stage" :class="{ opened }">
+      <!-- 合上时左侧引导语 -->
+      <aside class="book-closed-panel" :class="{ 'is-hidden': opened }" aria-hidden="opened">
+        <div class="closed-guide">
+          <p class="guide-main">{{ closedGuide.main }}</p>
+          <p class="guide-sub">{{ closedGuide.sub }}</p>
+          <span class="guide-arrow" aria-hidden="true">→</span>
+        </div>
+      </aside>
+
+      <!-- 顶栏：相对日记本绝对定位，右对齐、上移 20px -->
+      <div class="top-bar" @click.stop>
+        <div class="top-actions" :class="{ visible: opened }">
+          <div class="book-actions">
+            <button
+              class="action-btn"
+              :class="{ primary: editMode === 'new' }"
+              :disabled="editMode === 'edit'"
+              :title="editMode === 'new' ? '保存' : '新增'"
+              @click.stop="editMode === 'new' ? saveDraft() : writeNew()"
+            >
+              <el-icon><component :is="editMode === 'new' ? Check : Plus" /></el-icon>
+            </button>
+            <template v-if="current">
+              <button
+                class="action-btn"
+                :class="{ primary: editMode === 'edit' }"
+                :disabled="editMode === 'new'"
+                :title="editMode === 'edit' ? '保存' : '编辑'"
+                @click.stop="editMode === 'edit' ? saveDraft() : editCurrent()"
+              >
+                <el-icon><component :is="editMode === 'edit' ? Check : EditPen" /></el-icon>
+              </button>
+              <button
+                class="action-btn danger"
+                :disabled="isEditing"
+                title="删除"
+                @click.stop="removeCurrent"
+              >
+                <el-icon><Delete /></el-icon>
+              </button>
+            </template>
+          </div>
+          <div class="content-nav">
+            <button
+              :disabled="!current || isEditing || flipping || contentPage === 0"
+              @click.stop="flipContentPage(contentPage - 1)"
+            >
+              <el-icon><ArrowLeft /></el-icon>
+            </button>
+            <span class="nav-indicator">{{ contentPage + 1 }} / {{ contentTotalPages }}</span>
+            <button
+              :disabled="!current || isEditing || flipping || contentPage >= contentTotalPages - 1"
+              @click.stop="flipContentPage(contentPage + 1)"
+            >
+              <el-icon><ArrowRight /></el-icon>
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="book" :class="{ opened }">
         <!-- 右页（内容）—— 位置固定，翻页时露出底层新内容 -->
         <div class="page page-right">
@@ -458,27 +533,39 @@ onUnmounted(() => {
               <div class="entry-head">
                 <span class="entry-mood">{{ current.mood || '📖' }}</span>
                 <div class="entry-head-text">
-                  <input
-                    v-if="isEditing"
-                    ref="titleInputRef"
-                    v-model="draftTitle"
-                    class="entry-title-input"
-                    placeholder="这里用于书写日记名称"
-                    :maxlength="TITLE_MAX_LEN"
-                    @click.stop
-                  />
-                  <h3 v-else class="entry-title">{{ current.title || '无标题' }}</h3>
+                  <div class="entry-title-slot">
+                    <input
+                      v-show="isEditing"
+                      ref="titleInputRef"
+                      v-model="draftTitle"
+                      class="entry-title-input"
+                      placeholder="这里用于书写日记名称"
+                      :maxlength="TITLE_MAX_LEN"
+                      @click.stop
+                    />
+                    <h3 v-show="!isEditing" class="entry-title">{{ current.title || '无标题' }}</h3>
+                  </div>
                   <span class="entry-date">{{ fmtDate(current) }}</span>
                 </div>
+                <span v-if="entryMetaText" class="entry-meta">{{ entryMetaText }}</span>
               </div>
-              <textarea
-                v-if="isEditing"
-                v-model="draftContent"
-                class="entry-content-input"
-                placeholder="这里用于书写笔记内容"
-                @click.stop
-              />
-              <div v-else ref="entryContentRef" class="entry-content">{{ contentSlice }}</div>
+              <div ref="entryContentSlotRef" class="entry-content-slot">
+                <textarea
+                  v-show="isEditing"
+                  ref="entryContentInputRef"
+                  v-model="draftContent"
+                  class="entry-content-input"
+                  :style="contentAreaStyle"
+                  placeholder="这里用于书写笔记内容"
+                  @click.stop
+                />
+                <div
+                  v-show="!isEditing"
+                  ref="entryContentRef"
+                  class="entry-content"
+                  :style="contentAreaStyle"
+                >{{ contentSlice }}</div>
+              </div>
             </template>
             <div v-else class="entry-empty" @click="writeNew">
               <span class="empty-emoji">✍️</span>
@@ -492,34 +579,45 @@ onUnmounted(() => {
           <div class="page-inner right-inner">
             <div class="entry-head">
               <span class="entry-mood">{{ current.mood || '📖' }}</span>
-              <div>
-                <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
+              <div class="entry-head-text">
+                <div class="entry-title-slot">
+                  <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
+                </div>
                 <span class="entry-date">{{ fmtDate(current) }}</span>
               </div>
+              <span v-if="entryMetaText" class="entry-meta">{{ entryMetaText }}</span>
             </div>
-            <div class="entry-content">{{ contentPages[leafContentPage] || '' }}</div>
+            <div class="entry-content-slot">
+              <div class="entry-content" :style="contentAreaStyle">
+                {{ contentPages[leafContentPage] || '' }}
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- 书脊（合上悬停时露出，竖排显示书名）-->
         <div class="book-spine" :class="{ open: opened }">
-          <span class="spine-name">{{ book.name }}</span>
+          <span class="spine-name">{{ isEditing ? draftBookName : book.name }}</span>
         </div>
 
         <!-- 封面（合上时盖在右页上，点击翻开）—— 双面：正面是封面，背面是目录（左页）-->
         <div class="book-cover" :class="{ open: opened }" @click="openBook">
           <!-- 正面：封面 -->
-          <div class="cover-front" :style="coverStyle">
-            <span v-if="!isCustom" class="cover-emoji">{{ preset.emoji }}</span>
-            <div class="cover-plate">
-              <span class="cover-title">{{ book.name }}</span>
-            </div>
-            <span v-if="!opened" class="cover-hint">轻触翻开</span>
-          </div>
+          <div class="cover-front" :style="coverStyle" />
           <!-- 背面：翻开后成为左页（目录）-->
           <div class="cover-back">
             <div class="page-inner left-inner">
-              <h2 class="book-name">{{ book.name }}</h2>
+              <div class="book-name-slot">
+                <input
+                  v-if="isEditing"
+                  v-model="draftBookName"
+                  class="book-name-input"
+                  placeholder="日记本名称"
+                  :maxlength="BOOK_NAME_MAX_LEN"
+                  @click.stop
+                />
+                <h2 v-else class="book-name">{{ book.name }}</h2>
+              </div>
               <p class="book-sub">{{ entries.length }} 篇 · 创建于
                 {{ new Date(book.createTime).toLocaleDateString() }}
               </p>
@@ -532,7 +630,7 @@ onUnmounted(() => {
                   :disabled="isEditing"
                 />
               </div>
-              <div ref="tocListRef" class="toc-body">
+              <div class="toc-body">
                 <ul v-if="tocPageItems.length" class="toc">
                   <li
                     v-for="{ entry: e, index: i } in tocPageItems"
@@ -540,9 +638,10 @@ onUnmounted(() => {
                     :class="{ active: i === index, 'no-click': isEditing }"
                     @click.stop="flipTo(i)"
                   >
-                    <span class="toc-dot" />
                     <span class="toc-title">{{
-                      isEditing && i === index && !e.title ? '未命名' : e.title || '无标题'
+                      isEditing && i === index
+                        ? draftTitle.trim() || '未命名'
+                        : e.title || '无标题'
                     }}</span>
                     <span class="toc-date">{{ fmtDate(e) }}</span>
                   </li>
@@ -550,13 +649,16 @@ onUnmounted(() => {
                 <p v-else class="toc-empty">未找到匹配日记</p>
               </div>
               <div v-if="filteredEntries.length" class="toc-nav" @click.stop>
-                <button :disabled="isEditing || tocPage === 0" @click="flipTocPage(tocPage - 1)">
+                <button
+                  :disabled="isEditing || tocPage === 0"
+                  @click.stop="flipTocPage(tocPage - 1)"
+                >
                   <el-icon><ArrowLeft /></el-icon>
                 </button>
                 <span class="nav-indicator">{{ tocPage + 1 }} / {{ tocTotalPages }}</span>
                 <button
                   :disabled="isEditing || tocPage >= tocTotalPages - 1"
-                  @click="flipTocPage(tocPage + 1)"
+                  @click.stop="flipTocPage(tocPage + 1)"
                 >
                   <el-icon><ArrowRight /></el-icon>
                 </button>
@@ -581,30 +683,14 @@ onUnmounted(() => {
   min-height: 0;
 }
 .top-bar {
-  width: 90%;
-  flex-shrink: 0;
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 10px;
+  z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 0 0;
-}
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 18px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  color: var(--primary-color);
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(230, 126, 154, 0.2);
-  transition: 0.2s;
-}
-.back-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(230, 126, 154, 0.3);
+  justify-content: flex-end;
 }
 .top-actions {
   display: flex;
@@ -625,38 +711,52 @@ onUnmounted(() => {
 .action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 16px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: 18px;
+  border-radius: 50%;
   background: #fff;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 2px 10px rgba(230, 126, 154, 0.12);
   transition: 0.2s;
 }
-.action-btn:hover {
+.action-btn :deep(.el-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 16px;
+}
+.action-btn:hover:not(:disabled) {
   border-color: var(--accent-pink);
   color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(230, 126, 154, 0.22);
 }
 .action-btn.primary {
   border-color: var(--primary-color);
   background: var(--primary-color);
   color: #fff;
 }
-.action-btn.primary:hover {
+.action-btn.primary:hover:not(:disabled) {
   border-color: var(--primary-color);
   color: #fff;
   filter: brightness(1.05);
+  transform: translateY(-1px);
 }
 .action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  pointer-events: none;
 }
-.action-btn.danger:hover {
+.action-btn.danger:hover:not(:disabled) {
   border-color: var(--danger-color);
   color: var(--danger-color);
+  transform: translateY(-1px);
 }
 
 /* ============================================================
@@ -664,16 +764,18 @@ onUnmounted(() => {
    ============================================================ */
 .stage-wrap {
   --ease-book: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --cover-open-angle: 170deg; /* 设置日记本的翻开到的角度 */
+  --cover-open-angle: 180deg; /* 设置日记本的翻开到的角度 */
   flex: 1;
   min-height: 0;
   width: 90%;
   margin: 0 auto;
+  padding-top: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .book-stage {
+  position: relative;
   perspective: 2200px;
   width: 100%;
   /* 保持原有 560px / 70vh，同时在矮视口时限制高度，避免底部与四季按钮重叠 */
@@ -681,6 +783,70 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
 }
+
+/* —— 合上时左侧引导语 —— */
+.book-closed-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.65s var(--ease-book), transform 0.65s var(--ease-book);
+}
+.book-closed-panel.is-hidden {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+.closed-guide {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 0 clamp(20px, 5vw, 56px) 0 clamp(12px, 3vw, 32px);
+  text-align: right;
+}
+.guide-main {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 3.6vw, 38px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--primary-color);
+  opacity: 0.72;
+  line-height: 1.4;
+}
+.guide-sub {
+  margin: 0 0 20px;
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--text-light);
+  opacity: 0.8;
+  line-height: 1.6;
+}
+.guide-arrow {
+  display: inline-block;
+  font-size: clamp(22px, 2.8vw, 28px);
+  color: var(--accent-pink);
+  opacity: 0.55;
+  animation: guide-nudge 2.4s ease-in-out infinite;
+}
+@keyframes guide-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateX(8px);
+    opacity: 0.85;
+  }
+}
+
 .book {
   position: relative;
   width: 50%;
@@ -779,11 +945,41 @@ onUnmounted(() => {
 }
 
 /* —— 左页：目录 —— */
+.book-name-slot {
+  flex-shrink: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+}
 .book-name {
   margin: 0;
+  width: 100%;
   font-size: 22px;
   font-weight: 800;
+  line-height: 30px;
   color: var(--primary-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.book-name-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 30px;
+  height: 30px;
+  color: var(--primary-color);
+  font-family: inherit;
+  outline: none;
+}
+.book-name-input::placeholder {
+  color: var(--text-light);
+  font-weight: 600;
 }
 .book-sub {
   margin: 4px 0 12px;
@@ -830,6 +1026,7 @@ onUnmounted(() => {
   padding: 0;
   flex: 1;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -837,38 +1034,73 @@ onUnmounted(() => {
   scrollbar-width: none;
 }
 .toc li {
+  position: relative;
+  flex: 0 0 calc((100% - 12px) / 7);
+  height: calc((100% - 12px) / 7);
+  min-height: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 8px;
-  border-radius: 8px;
+  padding: 0 14px 0 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s;
+  overflow: hidden;
+  border-left: 2px solid rgba(212, 160, 18, 0.82);
+  background: linear-gradient(135deg, rgba(255, 253, 247, 0.98) 0%, rgba(255, 248, 236, 0.96) 100%);
+  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+  transition: background 0.2s, box-shadow 0.22s, transform 0.22s, border-color 0.2s;
+}
+/* 页堆层叠（与书架日记本 card 右侧效果一致） */
+.toc li::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 12%;
+  width: 5px;
+  height: 76%;
+  border-radius: 0 3px 3px 0;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 248, 225, 0.95) 0,
+    rgba(255, 248, 225, 0.95) 1px,
+    rgba(228, 214, 190, 0.58) 1px,
+    rgba(228, 214, 190, 0.58) 2px
+  );
+  box-shadow: 1px 2px 4px rgba(123, 93, 118, 0.14);
+  transform: skewY(2deg);
+  opacity: 0.92;
+  pointer-events: none;
 }
 .toc li:hover {
-  background: rgba(230, 126, 154, 0.1);
+  background: linear-gradient(135deg, rgba(255, 250, 248, 1) 0%, rgba(255, 241, 245, 0.98) 100%);
+  box-shadow: -3px 3px 7px rgba(123, 93, 118, 0.14), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  transform: translateX(-1px);
+}
+.toc li:hover::after {
+  opacity: 1;
+  transform: skewY(2deg) translateX(1px);
 }
 .toc li.active {
-  background: rgba(230, 126, 154, 0.16);
+  background: linear-gradient(135deg, rgba(255, 244, 248, 1) 0%, rgba(255, 236, 244, 0.98) 100%);
+  box-shadow: -3px 3px 8px rgba(230, 126, 154, 0.16), 0 0 0 1px rgba(230, 126, 154, 0.12) inset;
+  border-left-color: var(--primary-color);
 }
 .toc li.no-click {
   cursor: default;
 }
 .toc li.no-click:hover {
-  background: transparent;
+  background: linear-gradient(135deg, rgba(255, 253, 247, 0.98) 0%, rgba(255, 248, 236, 0.96) 100%);
+  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+  transform: none;
 }
 .toc li.no-click.active {
-  background: rgba(230, 126, 154, 0.16);
-}
-.toc-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-pink);
-  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(255, 244, 248, 1) 0%, rgba(255, 236, 244, 0.98) 100%);
+  box-shadow: -3px 3px 8px rgba(230, 126, 154, 0.16), 0 0 0 1px rgba(230, 126, 154, 0.12) inset;
+  border-left-color: var(--primary-color);
 }
 .toc-title {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--text-primary);
   white-space: nowrap;
@@ -882,22 +1114,18 @@ onUnmounted(() => {
 
 /* —— 目录 / 正文翻页 —— */
 .toc-nav {
-  display: grid;
-  grid-template-columns: 32px 7.5ch 32px;
-  gap: 6px;
+  display: flex;
   align-items: center;
-  justify-items: center;
+  gap: 8px;
   flex-shrink: 0;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed rgba(180, 140, 120, 0.28);
 }
 .content-nav {
-  display: grid;
-  grid-template-columns: 42px 8.5ch 42px;
-  gap: 8px;
+  display: flex;
   align-items: center;
-  justify-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 .toc-nav button {
@@ -921,8 +1149,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -962,12 +1190,16 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 .nav-indicator {
-  width: 100%;
-  text-align: center;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.toc-nav .nav-indicator,
+.content-nav .nav-indicator {
+  width: auto;
+  text-align: center;
 }
 .content-nav .nav-indicator {
   font-size: 14px;
@@ -975,6 +1207,7 @@ onUnmounted(() => {
 
 /* —— 右页：内容 —— */
 .entry-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -983,16 +1216,37 @@ onUnmounted(() => {
 }
 .entry-mood {
   font-size: 34px;
+  flex-shrink: 0;
+}
+.entry-title-slot {
+  flex-shrink: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
 }
 .entry-title {
   margin: 0;
+  width: 100%;
   font-size: 20px;
   font-weight: 800;
+  line-height: 24px;
   color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .entry-head-text {
   flex: 1;
   min-width: 0;
+}
+.entry-meta {
+  flex-shrink: 0;
+  margin-left: 12px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-light);
+  white-space: nowrap;
+  text-align: right;
 }
 .entry-title-input {
   display: block;
@@ -1003,6 +1257,8 @@ onUnmounted(() => {
   background: transparent;
   font-size: 20px;
   font-weight: 800;
+  line-height: 24px;
+  height: 24px;
   color: var(--text-color);
   font-family: inherit;
   outline: none;
@@ -1013,44 +1269,52 @@ onUnmounted(() => {
 }
 .entry-date {
   font-size: 12px;
+  line-height: 16px;
   color: var(--text-light);
 }
-.entry-content {
+.entry-content-slot {
   flex: 1;
   min-height: 0;
   margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.entry-content,
+.entry-content-input {
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
   font-size: 15px;
   line-height: 2;
   color: var(--text-primary);
+}
+.entry-content {
+  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow: hidden;
   scrollbar-width: none;
 }
 .entry-content::-webkit-scrollbar {
   display: none;
 }
 .entry-content-input {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  margin-top: 16px;
   padding: 0;
   border: none;
   background: transparent;
   resize: none;
-  font-size: 15px;
-  line-height: 2;
-  color: var(--text-primary);
   font-family: inherit;
   outline: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.entry-content-input::-webkit-scrollbar {
+  display: none;
 }
 .entry-content-input::placeholder {
   color: var(--text-light);
-}
-.leaf .entry-content {
-  overflow: hidden;
 }
 .entry-empty {
   margin: auto;
@@ -1065,21 +1329,26 @@ onUnmounted(() => {
 /* —— 书脊（左侧面）—— */
 .book-spine {
   position: absolute;
+  /* 高度直接等于书本高度，无需按视口大小做任何换算 */
+  --spine-w: 34px;
   top: 0;
   left: 0;
-  width: 34px;
+  width: var(--spine-w);
   height: 100%;
   transform-origin: left center;
-  transform: rotateY(-90deg);
+  /* 先沿纵深后移一个书脊宽度，再绕左缘旋开：
+     使书脊远端正好落在封面所在平面上，透视下投影与封面完全等高，
+     从而书脊上下永远与日记本对齐（不随书本尺寸变化而溢出或变短） */
+  transform: translateZ(calc(-1 * var(--spine-w))) rotateY(-90deg);
   border-radius: 4px 0 0 4px;
   background: linear-gradient(
-    100deg,
-    #4a2c44 0%,
-    var(--primary-color) 45%,
-    #5a3450 100%
+    to bottom,
+    var(--accent-pink) 0%,
+    var(--primary-color) 48%,
+    var(--accent-purple) 100%
   );
-  box-shadow: inset 2px 0 4px rgba(255, 255, 255, 0.18),
-    inset -3px 0 8px rgba(0, 0, 0, 0.28);
+  box-shadow: inset 2px 0 6px rgba(255, 255, 255, 0.32),
+    inset -2px 0 8px rgba(230, 126, 154, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1097,7 +1366,7 @@ onUnmounted(() => {
   font-weight: 800;
   letter-spacing: 0.18em;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 3px rgba(180, 90, 120, 0.35);
   max-height: 80%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1133,11 +1402,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 .cover-front {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
   background-size: cover;
   background-position: center;
   box-shadow: 6px 8px 28px rgba(120, 80, 100, 0.32),
@@ -1149,43 +1413,6 @@ onUnmounted(() => {
   border-radius: 10px 4px 4px 10px;
   background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
   box-shadow: inset -18px 0 30px rgba(150, 110, 120, 0.12);
-}
-.cover-emoji {
-  font-size: 90px;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
-}
-.cover-plate {
-  padding: 10px 22px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-}
-.cover-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--primary-color);
-  letter-spacing: 0.04em;
-}
-.cover-hint {
-  position: absolute;
-  bottom: 22px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(0, 0, 0, 0.18);
-  padding: 4px 12px;
-  border-radius: 12px;
-  animation: hintPulse 1.8s ease-in-out infinite;
-}
-@keyframes hintPulse {
-  0%,
-  100% {
-    opacity: 0.7;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-3px);
-  }
 }
 
 @media (max-width: 768px) {

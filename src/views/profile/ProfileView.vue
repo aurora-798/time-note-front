@@ -270,6 +270,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.profile {
+  padding: 24px 0 32px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* 名片 Banner */
 .banner {
   position: relative;
@@ -280,21 +286,25 @@ onMounted(async () => {
   padding: 28px 32px;
   border-radius: 20px;
   overflow: hidden;
-  background: var(--tn-glass);
-  backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  border: 1px solid var(--tn-glass-border);
-  box-shadow: var(--tn-shadow);
   margin-bottom: 24px;
+}
+.banner,
+.info-card,
+.form-card {
+  background: linear-gradient(165deg, #fffbf8 0, #fff5f7 55%, #fef8f9 100%);
+  border: 1px solid rgba(255, 154, 183, 0.28);
+  box-shadow: var(--shadow-pink);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 .banner-glow {
   position: absolute;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(60% 120% at 0% 0%, var(--tn-aurora-1), transparent 55%),
-    radial-gradient(50% 120% at 100% 100%, var(--tn-aurora-2), transparent 55%);
-  opacity: calc(var(--tn-aurora-alpha) * 0.7);
+    radial-gradient(60% 120% at 0% 0%, rgba(255, 154, 183, 0.22), transparent 55%),
+    radial-gradient(50% 120% at 100% 100%, rgba(192, 165, 255, 0.18), transparent 55%);
+  opacity: 0.85;
   filter: blur(30px);
 }
 .banner-main {
@@ -305,12 +315,12 @@ onMounted(async () => {
   gap: 20px;
 }
 .big-avatar {
-  background: var(--tn-gradient-primary);
+  background: var(--gradient-primary);
   color: #fff;
   font-size: 34px;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 0 0 4px var(--tn-glass-border), var(--tn-glow);
+  box-shadow: 0 0 0 4px rgba(255, 154, 183, 0.2), var(--shadow-pink);
 }
 .name-row {
   display: flex;
@@ -320,7 +330,7 @@ onMounted(async () => {
 .name {
   font-size: 22px;
   font-weight: 700;
-  color: var(--tn-text);
+  color: var(--text-primary);
 }
 .vip-badge {
   font-size: 12px;
@@ -328,24 +338,31 @@ onMounted(async () => {
   color: #fff;
   padding: 3px 12px;
   border-radius: 20px;
-  background: var(--tn-gradient-accent);
-  box-shadow: var(--tn-glow);
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-pink);
 }
 .vip-badge.plain {
-  background: var(--tn-glass-strong);
-  color: var(--tn-text-soft);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-secondary);
   box-shadow: none;
-  border: 1px solid var(--tn-glass-border);
+  border: 1px solid rgba(255, 154, 183, 0.24);
 }
 .username {
   font-size: 14px;
-  color: var(--tn-text-soft);
+  color: var(--text-secondary);
   margin-top: 6px;
 }
 .edit-btn {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(255, 154, 183, 0.32) !important;
+  color: var(--primary-color) !important;
+}
+.edit-btn:hover {
+  background: #fff !important;
+  border-color: var(--accent-pink) !important;
 }
 
 /* 展示态信息卡 */
@@ -355,13 +372,8 @@ onMounted(async () => {
   gap: 24px;
 }
 .info-card {
-  background: var(--tn-glass);
-  backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  border: 1px solid var(--tn-glass-border);
   border-radius: 18px;
   padding: 24px 26px;
-  box-shadow: var(--tn-shadow);
 }
 .info-card-title {
   display: flex;
@@ -369,7 +381,7 @@ onMounted(async () => {
   gap: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--tn-aurora-1);
+  color: var(--primary-color);
   margin-bottom: 18px;
 }
 .info-row {
@@ -377,7 +389,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 0;
-  border-bottom: 1px dashed var(--tn-border);
+  border-bottom: 1px dashed var(--border-color);
 }
 .info-row:last-child {
   border-bottom: none;
@@ -387,32 +399,27 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: var(--tn-text-soft);
+  color: var(--text-secondary);
 }
 .info-value {
   font-size: 14px;
   font-weight: 500;
-  color: var(--tn-text);
+  color: var(--text-primary);
 }
 .info-value.empty {
-  color: var(--tn-text-faint);
+  color: var(--text-light);
   font-weight: 400;
 }
 
 /* 编辑态 */
 .form-card {
-  background: var(--tn-glass);
-  backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--tn-glass-blur)) saturate(140%);
-  border: 1px solid var(--tn-glass-border);
   border-radius: 18px;
   padding: 28px;
-  box-shadow: var(--tn-shadow);
 }
 .form-group-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--tn-aurora-1);
+  color: var(--primary-color);
   margin: 8px 0 14px;
 }
 .form-row {
@@ -421,6 +428,21 @@ onMounted(async () => {
 }
 .col {
   flex: 1;
+}
+.form-card :deep(.el-input__wrapper),
+.form-card :deep(.el-select__wrapper),
+.form-card :deep(.el-input-number) {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 154, 183, 0.18) inset;
+}
+.form-card :deep(.el-input__wrapper:hover),
+.form-card :deep(.el-select__wrapper:hover),
+.form-card :deep(.el-input-number:hover) {
+  box-shadow: 0 0 0 1px rgba(255, 154, 183, 0.32) inset;
+}
+.form-card :deep(.el-input__wrapper.is-focus),
+.form-card :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 1px var(--primary-color) inset;
 }
 .avatar-uploader {
   width: 100%;
@@ -432,13 +454,13 @@ onMounted(async () => {
 .avatar-uploader :deep(.el-upload-dragger) {
   padding: 0;
   border-radius: 14px;
-  border: 1px dashed var(--tn-glass-border);
-  background: var(--tn-glass-strong);
+  border: 1px dashed rgba(255, 154, 183, 0.35);
+  background: rgba(255, 255, 255, 0.92);
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .avatar-uploader :deep(.el-upload-dragger:hover) {
-  border-color: var(--tn-aurora-1);
-  box-shadow: var(--tn-glow);
+  border-color: var(--accent-pink);
+  box-shadow: var(--shadow-pink);
 }
 .avatar-upload-inner {
   display: flex;
@@ -447,7 +469,7 @@ onMounted(async () => {
   padding: 16px 20px;
 }
 .upload-preview {
-  background: var(--tn-gradient-primary);
+  background: var(--gradient-primary);
   color: #fff;
   font-size: 26px;
   font-weight: 700;
@@ -458,12 +480,12 @@ onMounted(async () => {
   flex-direction: column;
   gap: 4px;
   text-align: left;
-  color: var(--tn-text-soft);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 .avatar-upload-hint .upload-icon {
   font-size: 18px;
-  color: var(--tn-aurora-1);
+  color: var(--primary-color);
 }
 .avatar-uploader :deep(.is-loading),
 .upload-icon.is-loading {
@@ -476,7 +498,7 @@ onMounted(async () => {
 }
 .avatar-upload-hint small {
   font-size: 12px;
-  color: var(--tn-text-faint);
+  color: var(--text-light);
 }
 .form-actions {
   display: flex;
@@ -484,9 +506,14 @@ onMounted(async () => {
   gap: 12px;
   margin-top: 16px;
 }
+.form-actions :deep(.el-button:not(.save-btn)) {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 154, 183, 0.28);
+  color: var(--text-secondary);
+}
 .save-btn {
   color: #fff;
-  background: var(--tn-gradient-primary);
+  background: var(--gradient-primary);
   background-size: 200% 100%;
   border: none;
   transition: transform 0.25s, box-shadow 0.25s, background-position 0.5s;
@@ -494,10 +521,13 @@ onMounted(async () => {
 .save-btn:hover {
   transform: translateY(-2px);
   background-position: 100% 0;
-  box-shadow: var(--tn-glow-strong);
+  box-shadow: var(--shadow-pink-strong);
 }
 
 @media (max-width: 768px) {
+  .profile {
+    padding: 16px 0 24px;
+  }
   .banner {
     flex-direction: column;
     align-items: flex-start;

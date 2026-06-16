@@ -9,7 +9,7 @@
    建议后端实体：
      SysDiaryBook { id, userId, name, cover, coverType, font,
                     encrypted, passwordHash, createTime }
-     SysDiary 增加字段：bookId（关联日记本）
+     SysDiary 增加字段：bookId（关联日记本）、location、weather
    建议接口：
      GET    /api/diary-book/page?userId=
      POST   /api/diary-book
@@ -18,21 +18,13 @@
      ...（沿用现有 /api/diary 增删改查，新增 bookId 过滤）
    ============================================================ */
 
-// —— 预设封面（占位：渐变 + emoji，后续可替换为真实插画）——
-export const COVER_PRESETS = [
-  { id: 'c1', gradient: 'linear-gradient(160deg,#ffd3e0,#c8b1ff)', emoji: '🌸' },
-  { id: 'c2', gradient: 'linear-gradient(160deg,#b8ecff,#a6e3d0)', emoji: '🌊' },
-  { id: 'c3', gradient: 'linear-gradient(160deg,#ffe1b0,#ffb39b)', emoji: '🍊' },
-  { id: 'c4', gradient: 'linear-gradient(160deg,#d7c4ff,#9fc7ff)', emoji: '🌙' },
-  { id: 'c5', gradient: 'linear-gradient(160deg,#ffc9d8,#ff9ab7)', emoji: '🍓' },
-  { id: 'c6', gradient: 'linear-gradient(160deg,#c7f5d9,#8fe3c0)', emoji: '🍃' },
-  { id: 'c7', gradient: 'linear-gradient(160deg,#fff0b8,#ffd28a)', emoji: '⭐' },
-  { id: 'c8', gradient: 'linear-gradient(160deg,#cfe3ff,#bcd0ff)', emoji: '❄️' },
-  { id: 'c9', gradient: 'linear-gradient(160deg,#ffd6ec,#e0b3ff)', emoji: '🦄' },
-  { id: 'c10', gradient: 'linear-gradient(160deg,#ffe7c2,#ffc09f)', emoji: '🐱' },
-  { id: 'c11', gradient: 'linear-gradient(160deg,#bde7ff,#c4f0e6)', emoji: '🐳' },
-  { id: 'c12', gradient: 'linear-gradient(160deg,#f0d9ff,#ffd6e8)', emoji: '🌷' },
-]
+// —— 预设封面（对象存储外链，cover-{n}.png 对应 c{n}）——
+const COVER_CDN_BASE = 'http://tgldl5vcp.hn-bkt.clouddn.com/cover'
+
+export const COVER_PRESETS = Array.from({ length: 12 }, (_, i) => ({
+  id: `c${i + 1}`,
+  url: `${COVER_CDN_BASE}/cover-${i + 1}.png`,
+}))
 
 // —— 可选字体（占位：用系统字体族名，后续可换成网络字体）——
 export const FONT_OPTIONS = [
@@ -78,6 +70,37 @@ function obfuscate(str) {
 
 const DEMO_MOODS = ['😊', '🌧️', '📖', '☀️', '🌙', '🍃', '✨', '🌸', '🍊', '🦄']
 
+const DEMO_LOCATIONS = [
+  { city: '潍坊市', district: '寒亭区' },
+  { city: '青岛市', district: '市南区' },
+  { city: '济南市', district: '历下区' },
+  { city: '烟台市', district: '芝罘区' },
+  { city: '威海市', district: '环翠区' },
+  { city: '淄博市', district: '张店区' },
+  { city: '临沂市', district: '兰山区' },
+  { city: '泰安市', district: '泰山区' },
+]
+
+const DEMO_WEATHERS = [
+  { condition: '多云', temperature: 25 },
+  { condition: '晴', temperature: 28 },
+  { condition: '阴', temperature: 22 },
+  { condition: '小雨', temperature: 18 },
+  { condition: '雷阵雨', temperature: 26 },
+  { condition: '雾', temperature: 15 },
+  { condition: '小雪', temperature: 3 },
+  { condition: '大风', temperature: 12 },
+]
+
+/** 按索引选取演示用的位置与天气（后续可替换为接口数据） */
+export function pickDemoLocationWeather(seed = 0) {
+  const i = Math.abs(Number(seed) || 0)
+  return {
+    location: DEMO_LOCATIONS[i % DEMO_LOCATIONS.length],
+    weather: DEMO_WEATHERS[i % DEMO_WEATHERS.length],
+  }
+}
+
 /** 生成长正文，用于测试正文分页（约 280 字/页） */
 function longContent(pages = 5) {
   const paragraph =
@@ -97,6 +120,7 @@ function buildPaginationDemoEntries(bookId, baseTime, count = 22) {
   for (let i = 0; i < count; i++) {
     const t = baseTime - i * 3600000 * 6
     const day = new Date(t).toISOString().slice(0, 10)
+    const { location, weather } = pickDemoLocationWeather(i)
     entries.push({
       id: uid(),
       bookId,
@@ -106,6 +130,8 @@ function buildPaginationDemoEntries(bookId, baseTime, count = 22) {
           ? longContent(5)
           : `这是第 ${i + 1} 篇日记，用于测试左侧目录的分页与搜索功能。日期：${day}。`,
       mood: DEMO_MOODS[i % DEMO_MOODS.length],
+      location,
+      weather,
       date: day,
       createTime: t,
       updateTime: t,
@@ -155,6 +181,32 @@ function ensurePaginationDemoData() {
   localStorage.setItem(flag, '1')
 }
 
+function ensureEntryLocationWeather() {
+  const flag = nsKey('location-weather-v1')
+  if (localStorage.getItem(flag)) return
+
+  ensureSeed()
+  const books = read(nsKey('books'), [])
+  books.forEach((book) => {
+    const key = nsKey(`entries:${book.id}`)
+    const entries = read(key, [])
+    if (!entries.length) return
+    let changed = false
+    const next = entries.map((e, i) => {
+      if (e.location && e.weather) return e
+      changed = true
+      const demo = pickDemoLocationWeather(i + e.createTime)
+      return {
+        ...e,
+        location: e.location || demo.location,
+        weather: e.weather || demo.weather,
+      }
+    })
+    if (changed) write(key, next)
+  })
+  localStorage.setItem(flag, '1')
+}
+
 function ensureSeed() {
   const seededFlag = nsKey('seeded')
   if (localStorage.getItem(seededFlag)) return
@@ -190,6 +242,7 @@ function ensureSeed() {
       title: '海边的早晨',
       content: longContent(4),
       mood: '🌊',
+      ...pickDemoLocationWeather(0),
       date: new Date(now - 86400000).toISOString().slice(0, 10),
       createTime: now - 86400000,
       updateTime: now - 86400000,
@@ -232,6 +285,18 @@ export function createNotebook({ name, coverType, cover, font, encrypted, passwo
   return book
 }
 
+export function updateNotebook(id, patch) {
+  // TODO: return request.put(`/api/diary-book/${id}`, patch)
+  const books = read(nsKey('books'), [])
+  const idx = books.findIndex((b) => b.id === id)
+  if (idx < 0) return null
+  const next = { ...books[idx], ...patch }
+  if (patch.name !== undefined) next.name = String(patch.name).trim()
+  books[idx] = next
+  write(nsKey('books'), books)
+  return next
+}
+
 export function deleteNotebook(id) {
   // TODO: return request.delete(`/api/diary-book/${id}`)
   const books = read(nsKey('books'), []).filter((b) => b.id !== id)
@@ -249,6 +314,7 @@ export function verifyNotebookPassword(id, password) {
 
 export function listEntries(bookId) {
   ensurePaginationDemoData()
+  ensureEntryLocationWeather()
   // TODO: return request.get('/api/diary/page', { params:{ bookId } })
   return read(nsKey(`entries:${bookId}`), []).sort((a, b) => b.createTime - a.createTime)
 }
@@ -269,12 +335,15 @@ export function saveEntry(bookId, entry, { prepend = false } = {}) {
       return entries[idx]
     }
   }
+  const demo = pickDemoLocationWeather(now)
   const created = {
     id: uid(),
     bookId,
     title: entry.title || '',
     content: entry.content || '',
     mood: entry.mood || '',
+    location: entry.location || demo.location,
+    weather: entry.weather || demo.weather,
     date: entry.date || new Date(now).toISOString().slice(0, 10),
     media: entry.media || [],
     createTime: now,
@@ -294,6 +363,12 @@ export function deleteEntry(bookId, entryId) {
 
 export function coverPreset(id) {
   return COVER_PRESETS.find((c) => c.id === id) || COVER_PRESETS[0]
+}
+
+/** 解析日记本封面外链（预设或自定义） */
+export function notebookCoverUrl(coverType, cover) {
+  if (coverType === 'custom') return cover
+  return coverPreset(cover).url
 }
 
 export function fontFamily(id) {

@@ -1,7 +1,8 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Check } from '@element-plus/icons-vue'
+import { Plus, Check, Loading } from '@element-plus/icons-vue'
+import { uploadFile } from '@/api/media'
 import { COVER_PRESETS, FONT_OPTIONS, createNotebook } from '@/services/notebooks'
 
 const props = defineProps({ modelValue: Boolean })
@@ -23,6 +24,7 @@ const form = reactive({
 })
 
 const fileInput = ref()
+const uploadingCover = ref(false)
 
 const nameLen = computed(() => form.name.length)
 
@@ -45,22 +47,35 @@ function pickPreset(id) {
   form.cover = id
 }
 
-function onUpload(e) {
+async function onUpload(e) {
   const file = e.target.files?.[0]
+  e.target.value = ''
   if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
   if (file.size > 2 * 1024 * 1024) {
     ElMessage.warning('图片不超过 2MB')
     return
   }
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.customCover = reader.result
+  uploadingCover.value = true
+  try {
+    const media = await uploadFile(file, { mediaType: 1 })
+    form.customCover = media.fileUrl
     form.coverType = 'custom'
+  } catch {
+    // 拦截器已提示
+  } finally {
+    uploadingCover.value = false
   }
-  reader.readAsDataURL(file)
 }
 
 function submit() {
+  if (uploadingCover.value) {
+    ElMessage.warning('封面正在上传，请稍候')
+    return
+  }
   if (!form.name.trim()) {
     ElMessage.warning('请填写日记本名称')
     return
@@ -85,7 +100,7 @@ function submit() {
   <el-dialog
     v-model="visible"
     title="创建新日记本"
-    width="540px"
+    width="580px"
     class="nb-create-dialog"
     align-center
   >
@@ -106,16 +121,19 @@ function submit() {
       <!-- 封面 -->
       <div class="cn-field">
         <label>选择封面</label>
-        <div class="cn-covers">
+        <div class="cn-covers-outer">
+          <div class="cn-covers">
           <button
             v-for="c in COVER_PRESETS"
             :key="c.id"
             class="cn-cover"
             :class="{ active: form.coverType === 'preset' && form.cover === c.id }"
-            :style="{ backgroundImage: c.gradient }"
             @click="pickPreset(c.id)"
           >
-            <span class="cn-cover-emoji">{{ c.emoji }}</span>
+            <span
+              class="cn-cover-face"
+              :style="{ backgroundImage: `url(${c.url})` }"
+            />
             <span v-if="form.coverType === 'preset' && form.cover === c.id" class="cn-check">
               <el-icon><Check /></el-icon>
             </span>
@@ -125,13 +143,19 @@ function submit() {
           <button
             class="cn-cover cn-cover-upload"
             :class="{ active: form.coverType === 'custom' }"
-            :style="
-              form.customCover ? { backgroundImage: `url(${form.customCover})` } : {}
-            "
+            :disabled="uploadingCover"
             @click="fileInput.click()"
           >
-            <el-icon v-if="!form.customCover"><Plus /></el-icon>
-            <span v-if="form.coverType === 'custom'" class="cn-check">
+            <span
+              class="cn-cover-face"
+              :style="
+                form.customCover ? { backgroundImage: `url(${form.customCover})` } : {}
+              "
+            >
+              <el-icon v-if="uploadingCover" class="is-loading"><Loading /></el-icon>
+              <el-icon v-else-if="!form.customCover"><Plus /></el-icon>
+            </span>
+            <span v-if="form.coverType === 'custom' && !uploadingCover" class="cn-check">
               <el-icon><Check /></el-icon>
             </span>
           </button>
@@ -140,8 +164,10 @@ function submit() {
             type="file"
             accept="image/*"
             hidden
+            :disabled="uploadingCover"
             @change="onUpload"
           />
+          </div>
         </div>
       </div>
 
@@ -234,44 +260,92 @@ function submit() {
   color: var(--text-light);
 }
 
+.cn-covers-outer {
+  /* 136px 封面槽 + 14px 间距 + 滚动条槽，固定总高避免抖动 */
+  height: 158px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
 .cn-covers {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 8px;
+  height: 158px;
+  box-sizing: border-box;
+  padding-bottom: 22px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-pink) rgba(255, 154, 183, 0.15);
+}
+.cn-covers::-webkit-scrollbar {
+  height: 6px;
+}
+.cn-covers::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--accent-pink), var(--primary-color));
+  border-radius: 999px;
+}
+.cn-covers::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+.cn-covers::-webkit-scrollbar-track {
+  background: rgba(255, 154, 183, 0.15);
+  border-radius: 999px;
 }
 .cn-cover {
   position: relative;
-  aspect-ratio: 3 / 4;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  background-size: cover;
-  background-position: center;
+  flex: 0 0 104px;
+  width: 104px;
+  height: 136px;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  overflow: visible;
 }
-.cn-cover:hover {
-  transform: translateY(-2px);
+.cn-cover-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 128px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  background-color: #fafafa;
+  transform-origin: center center;
+  transition: transform 0.22s cubic-bezier(0.34, 1.2, 0.64, 1), border-color 0.2s,
+    box-shadow 0.2s;
+  will-change: transform;
 }
-.cn-cover.active {
+.cn-cover:hover .cn-cover-face {
+  transform: scale(1.06);
+  box-shadow: 0 6px 16px rgba(255, 154, 183, 0.35);
+}
+.cn-cover.active .cn-cover-face {
   border-color: var(--accent-pink);
   box-shadow: 0 4px 14px rgba(255, 154, 183, 0.35);
 }
-.cn-cover-emoji {
-  font-size: 22px;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
-}
-.cn-cover-upload {
-  background-color: #fafafa;
+.cn-cover-upload .cn-cover-face {
   color: var(--accent-pink);
-  font-size: 20px;
+  font-size: 24px;
+}
+.cn-cover-upload:disabled {
+  cursor: wait;
+}
+.cn-cover-upload:disabled .cn-cover-face {
+  opacity: 0.7;
 }
 .cn-check {
   position: absolute;
-  bottom: 3px;
-  right: 3px;
+  bottom: 7px;
+  right: 7px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -286,25 +360,30 @@ function submit() {
 .cn-fonts {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 .cn-font {
-  padding: 8px 18px;
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  background: #fff;
+  padding: 7px 16px;
+  border: 1px solid rgba(255, 154, 183, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   color: var(--text-secondary);
-  transition: 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 .cn-font:hover {
-  border-color: var(--accent-pink);
+  border-color: rgba(255, 154, 183, 0.38);
+  background: rgba(255, 248, 251, 0.96);
+  color: var(--text-primary);
 }
 .cn-font.active {
-  background: var(--gradient-primary);
-  color: #fff;
-  border-color: transparent;
+  background: rgba(255, 154, 183, 0.12);
+  color: var(--primary-color);
+  border-color: rgba(230, 126, 154, 0.45);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(255, 154, 183, 0.1);
 }
 
 .cn-check-label {

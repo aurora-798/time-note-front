@@ -1,15 +1,16 @@
 <script setup>
 import { computed } from 'vue'
 import { Lock, Delete } from '@element-plus/icons-vue'
-import { coverPreset } from '@/services/notebooks'
+import { notebookCoverUrl } from '@/services/notebooks'
 
 const props = defineProps({
   notebook: { type: Object, required: true },
 })
 const emit = defineEmits(['open', 'delete'])
 
-const isCustom = computed(() => props.notebook.coverType === 'custom')
-const preset = computed(() => coverPreset(props.notebook.cover))
+const coverStyle = computed(() => ({
+  backgroundImage: `url(${notebookCoverUrl(props.notebook.coverType, props.notebook.cover)})`,
+}))
 
 const createdLabel = computed(() => {
   const d = new Date(props.notebook.createTime)
@@ -18,7 +19,7 @@ const createdLabel = computed(() => {
 
 const tag = computed(() => {
   if (props.notebook.encrypted) return { text: '加密', cls: 'tag-encrypted' }
-  return { text: '私人', cls: 'tag-private' }
+  return { text: '私密', cls: 'tag-private' }
 })
 </script>
 
@@ -29,15 +30,7 @@ const tag = computed(() => {
     @click="emit('open', notebook)"
   >
     <!-- 封面 -->
-    <div
-      class="nb-cover"
-      :style="
-        isCustom
-          ? { backgroundImage: `url(${notebook.cover})` }
-          : { backgroundImage: preset.gradient }
-      "
-    >
-      <span v-if="!isCustom" class="nb-cover-emoji">{{ preset.emoji }}</span>
+    <div class="nb-cover" :style="coverStyle">
       <span class="nb-tag" :class="tag.cls">
         <el-icon v-if="notebook.encrypted"><Lock /></el-icon>{{ tag.text }}
       </span>
@@ -64,11 +57,12 @@ const tag = computed(() => {
 <style scoped>
 .notebook {
   position: relative;
-  min-height: 320px;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 14px;
-  overflow: visible;
+  overflow: hidden;
   cursor: pointer;
   background-image: linear-gradient(135deg, #fff8e1 0, #fffbeb 80%, #fef3c7 100%),
     linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
@@ -149,24 +143,19 @@ const tag = computed(() => {
 /* —— 封面 —— */
 .nb-cover {
   position: relative;
-  height: 200px;
+  flex: 0 0 68%;
+  min-height: 0;
   border-radius: 8px 8px 0 0;
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   border-bottom: 3px solid rgba(230, 126, 154, 0.66);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
   filter: brightness(0.96) saturate(1.04);
-  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.3s;
+  transition: filter 0.3s;
 }
 .notebook:hover .nb-cover {
-  transform: translateY(-0.5px) scale(1.006);
   filter: brightness(1.03) saturate(1.05);
-}
-.nb-cover-emoji {
-  font-size: 64px;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.15));
 }
 .nb-tag {
   position: absolute;
@@ -218,8 +207,13 @@ const tag = computed(() => {
 
 /* —— 信息区（横线纸纹理）—— */
 .nb-info {
-  flex: 1;
-  padding: 18px 20px;
+  flex: 0 0 32%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1vw, 16px);
   border-radius: 0 0 8px 8px;
   background: linear-gradient(
       to bottom,
@@ -231,22 +225,31 @@ const tag = computed(() => {
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.55) inset;
 }
 .nb-title {
-  margin: 0 0 12px;
-  font-size: 1.2rem;
+  margin: 0 0 clamp(4px, 0.6vh, 8px);
+  font-size: clamp(0.82rem, 1vw, 1.1rem);
   font-weight: 800;
+  line-height: 1.25;
   color: var(--text-color);
   transform: rotate(-0.5deg);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .nb-meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 0.9rem;
+  gap: clamp(2px, 0.35vh, 5px);
+  font-size: clamp(0.72rem, 0.82vw, 0.85rem);
+  line-height: 1.3;
   color: var(--primary-color);
   transform: rotate(0.3deg);
+  min-height: 0;
+  overflow: hidden;
+}
+.nb-meta span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { User, SwitchButton, Notebook } from '@element-plus/icons-vue'
+import { SwitchButton, User } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useSeasonStore } from '@/store/season'
 import SeasonBackground from '@/components/diary/SeasonBackground.vue'
@@ -16,14 +16,10 @@ const seasonStore = useSeasonStore()
 const avatarText = computed(() => userStore.displayName.charAt(0).toUpperCase())
 const showSeasonDock = computed(() => route.name !== 'book-view')
 
-const links = [
-  { path: '/diary', label: '我的日记', cls: 'pill-diary' },
-  { path: '/profile', label: '个人中心', cls: 'pill-garden' },
-]
+const links = [{ path: '/diary', label: '我的日记架', cls: 'pill-diary' }]
 
 function isActive(path) {
-  if (path === '/diary') return route.path.startsWith('/diary')
-  return route.path === path
+  return route.path.startsWith(path)
 }
 
 function go(path) {
@@ -78,7 +74,7 @@ onMounted(() => {
           <el-dropdown trigger="click" placement="bottom-end">
             <div class="user-info">
               <div class="user-avatar">
-                <el-avatar :size="44" :src="userStore.profile?.avatar">
+                <el-avatar :size="36" :src="userStore.profile?.avatar">
                   {{ avatarText }}
                 </el-avatar>
               </div>
@@ -96,9 +92,6 @@ onMounted(() => {
                     </span>
                   </div>
                 </div>
-                <el-dropdown-item divided @click="go('/diary')">
-                  <el-icon><Notebook /></el-icon> 我的日记
-                </el-dropdown-item>
                 <el-dropdown-item @click="go('/profile')">
                   <el-icon><User /></el-icon> 个人中心
                 </el-dropdown-item>
@@ -128,9 +121,11 @@ onMounted(() => {
 
 <style scoped>
 .diary-shell {
-  --nav-h: 76px;
+  --nav-h: 60px;
   /* 四季按钮占位：底部预留高度，避免内容与按钮上下重叠 */
   --dock-zone-h: 108px;
+  /* 书架行高计算专用，不随路由切换 no-dock 变化，避免进入日记本时卡片高度跳动 */
+  --shelf-layout-dock-h: 108px;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -153,35 +148,35 @@ onMounted(() => {
 .navbar-inner {
   max-width: 1280px;
   margin: 0 auto;
-  height: 76px;
-  padding: 0 28px;
+  height: 60px;
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   flex-shrink: 0;
 }
 .logo-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: var(--gradient-primary);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
-  box-shadow: -10px 12px 14px rgba(138, 98, 132, 0.28),
+  box-shadow: -6px 8px 10px rgba(138, 98, 132, 0.2),
     inset 1px 1px 0 rgba(255, 255, 255, 0.9);
 }
 .logo-text {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: var(--text-primary);
@@ -198,40 +193,43 @@ onMounted(() => {
 }
 .nav-link {
   display: inline-block;
-  padding: 11px 24px;
-  border-radius: 22px;
-  font-weight: 700;
-  font-size: 15px;
-  color: #fff;
+  padding: 7px 16px;
+  border-radius: 18px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary-color);
   cursor: pointer;
   letter-spacing: 0.02em;
-  transition: transform 0.16s, box-shadow 0.2s, filter 0.2s;
-  box-shadow: -12px 14px 14px rgba(138, 98, 132, 0.26),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.85);
-  transform: translate(-1px, -1px);
+  transition: transform 0.16s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+  box-shadow: none;
+  transform: none;
 }
 .pill-diary {
-  background: var(--gradient-primary);
-}
-.pill-garden {
-  background: var(--gradient-secondary);
+  background: rgba(255, 154, 183, 0.16);
+  border: 1px solid rgba(255, 154, 183, 0.28);
+  color: var(--primary-color);
 }
 .nav-link:hover {
-  transform: translate(-2px, -2px);
-  filter: brightness(1.05);
-  box-shadow: -16px 18px 18px rgba(138, 98, 132, 0.3),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+  filter: none;
+  box-shadow: 0 4px 12px rgba(255, 154, 183, 0.14);
+}
+.pill-diary:hover {
+  background: rgba(255, 154, 183, 0.24);
+  border-color: rgba(255, 154, 183, 0.4);
 }
 .nav-link:active {
-  transform: translate(1px, 1px) scale(0.99);
-  box-shadow: -4px 6px 8px rgba(143, 107, 140, 0.24),
-    inset 1px 1px 1px rgba(255, 255, 255, 0.9);
+  transform: translateY(0) scale(0.99);
+  box-shadow: none;
 }
 .nav-link.is-active {
-  filter: brightness(1.04) saturate(1.05);
-  box-shadow: -16px 18px 18px rgba(138, 98, 132, 0.32),
-    0 0 0 2px rgba(255, 255, 255, 0.5) inset,
-    inset 1px 1px 0 rgba(255, 255, 255, 0.95);
+  filter: none;
+  box-shadow: 0 2px 10px rgba(255, 154, 183, 0.16);
+}
+.pill-diary.is-active {
+  background: rgba(255, 154, 183, 0.28);
+  border-color: rgba(230, 126, 154, 0.45);
+  font-weight: 700;
 }
 
 .nav-right {
@@ -303,10 +301,10 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .diary-shell {
-    --nav-h: 64px;
+    --nav-h: 52px;
   }
   .navbar-inner {
-    height: 64px;
+    height: 52px;
     padding: 0 16px;
     gap: 12px;
   }
@@ -314,11 +312,11 @@ onMounted(() => {
     display: none;
   }
   .nav-link {
-    padding: 9px 16px;
+    padding: 6px 14px;
     font-size: 13px;
   }
   .lala-main {
-    padding: 20px 16px 56px;
+    padding: 16px 16px 56px;
   }
 }
 </style>
