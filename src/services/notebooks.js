@@ -252,10 +252,73 @@ function ensureSeed() {
   localStorage.setItem(seededFlag, '1')
 }
 
+function ensureShelfDemoFill() {
+  const flag = nsKey('shelf-fill-v1')
+  if (localStorage.getItem(flag)) return
+
+  ensureSeed()
+  const books = read(nsKey('books'), [])
+  const now = Date.now()
+  const demoNames = [
+    '春日随笔',
+    '旅行记忆',
+    '工作总结',
+    '读书笔记',
+    '梦境碎片',
+    '咖啡时光',
+    '雨夜心情',
+    '成长记录',
+    '美食探店',
+    '健身打卡',
+    '音乐合集',
+    '电影观后',
+    '学习笔记',
+    '育儿日记',
+    '宠物日常',
+    '周末计划',
+    '灵感速写',
+  ]
+  const covers = ['c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12']
+  const fonts = ['default', 'song', 'kai', 'hei']
+
+  demoNames.forEach((name, i) => {
+    const id = uid()
+    const createTime = now - (i + 3) * 86400000
+    const encrypted = i === 2 || i === 9
+    books.push({
+      id,
+      name,
+      coverType: 'preset',
+      cover: covers[i % covers.length],
+      font: fonts[i % fonts.length],
+      encrypted,
+      passwordHash: encrypted ? obfuscate('123456') : '',
+      createTime,
+    })
+    write(nsKey(`entries:${id}`), [
+      {
+        id: uid(),
+        bookId: id,
+        title: `${name} · 开篇`,
+        content: '这是一本用于填充书架展示的演示日记本，滚动页面即可浏览更多日记本卡片。',
+        mood: DEMO_MOODS[i % DEMO_MOODS.length],
+        ...pickDemoLocationWeather(i),
+        date: new Date(createTime).toISOString().slice(0, 10),
+        createTime,
+        updateTime: createTime,
+      },
+    ])
+  })
+
+  write(nsKey('books'), books)
+  localStorage.setItem(flag, '1')
+}
+
 // —— 日记本 CRUD ——
 
 export function listNotebooks() {
   ensureSeed()
+  ensureShelfDemoFill()
   // TODO: return request.get('/api/diary-book/page', { params:{ userId } })
   const books = read(nsKey('books'), [])
   return books

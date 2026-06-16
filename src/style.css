@@ -60,6 +60,9 @@
   /* Element Plus 主色对齐 */
   --el-color-primary: #e67e9a;
 
+  /* —— 背景氛围（对齐 laladiary：轻 blur + 主题底色，无厚重遮罩）—— */
+  --bg-blur: 5px;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -77,6 +80,17 @@ body,
   padding: 0;
   height: 100%;
   overflow: hidden;
+}
+
+/* 书架页：整页纵向滚动（对齐 laladiary body.page-index） */
+html.page-bookshelf,
+body.page-bookshelf,
+#app.page-bookshelf {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -97,7 +111,8 @@ p {
 
 /* ============================================================
    全屏背景层（固定全屏，z-index 置底）
-   .season-bg 由 SeasonBackground.vue 渲染，图片由 store 注入
+   参考 laladiary background-themes.css：
+   封面图仅 5px 轻模糊 + scale，不加粉彩遮罩，切换背景清晰可辨
    ============================================================ */
 .season-bg {
   position: fixed;
@@ -105,18 +120,44 @@ p {
   z-index: -2;
   overflow: hidden;
   background-color: var(--primary-bg);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+.season-bg-image {
+  position: absolute;
+  inset: -12px;
+  display: block;
+  background-color: inherit;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  transition: opacity 0.5s ease;
-}
-.season-bg::after {
-  /* 轻遮罩，保证前景内容可读 */
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 252, 250, 0.06);
+  background-attachment: fixed;
+  filter: blur(var(--bg-blur));
+  transform: scale(1.02);
+  transform-origin: center;
   pointer-events: none;
+  transition: opacity 0.35s ease;
+  opacity: 1;
+}
+.season-bg-image.is-loading {
+  opacity: 0;
+}
+
+@media (max-width: 767px) {
+  .season-bg-image {
+    inset: -10px;
+    background-attachment: scroll;
+    filter: blur(4px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .season-bg-image {
+    filter: none;
+    transform: none;
+    inset: 0;
+  }
 }
 
 /* ============================================================
@@ -169,7 +210,7 @@ p {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .season-bg::after {
-    animation: none;
+  .season-bg-image {
+    transition: none;
   }
 }

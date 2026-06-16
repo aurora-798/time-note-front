@@ -249,11 +249,20 @@ watch(editMode, (mode) => {
   })
 })
 
+const coverUrl = computed(() => {
+  if (!book.value) return ''
+  return notebookCoverUrl(book.value.coverType, book.value.cover)
+})
+
 const coverStyle = computed(() => {
-  if (!book.value) return {}
-  return {
-    backgroundImage: `url(${notebookCoverUrl(book.value.coverType, book.value.cover)})`,
-  }
+  if (!coverUrl.value) return {}
+  return { backgroundImage: `url(${coverUrl.value})` }
+})
+
+/** 书脊沿用封面左缘色彩，叠加阴影渐变模拟装订厚度 */
+const spineStyle = computed(() => {
+  if (!coverUrl.value) return {}
+  return { '--spine-cover-image': `url(${coverUrl.value})` }
 })
 
 function load() {
@@ -622,7 +631,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 书脊（合上悬停时露出，竖排显示书名）-->
-        <div class="book-spine" :class="{ open: opened }">
+        <div class="book-spine" :class="{ open: opened }" :style="spineStyle">
           <span class="spine-name">{{ isEditing ? draftBookName : book.name }}</span>
         </div>
 
@@ -1384,7 +1393,7 @@ onUnmounted(() => {
   font-size: 44px;
 }
 
-/* —— 书脊（左侧面）—— */
+/* —— 书脊（左侧面：取封面左缘色 + 装订阴影）—— */
 .book-spine {
   position: absolute;
   /* 高度直接等于书本高度，无需按视口大小做任何换算 */
@@ -1399,14 +1408,28 @@ onUnmounted(() => {
      从而书脊上下永远与日记本对齐（不随书本尺寸变化而溢出或变短） */
   transform: translateZ(calc(-1 * var(--spine-w))) rotateY(-90deg);
   border-radius: 4px 0 0 4px;
-  background: linear-gradient(
-    to bottom,
-    var(--accent-pink) 0%,
-    var(--primary-color) 48%,
-    var(--accent-purple) 100%
-  );
-  box-shadow: inset 2px 0 6px rgba(255, 255, 255, 0.32),
-    inset -2px 0 8px rgba(230, 126, 154, 0.22);
+  background-color: #6b5d58;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.03) 38%,
+      rgba(0, 0, 0, 0.1) 72%,
+      rgba(0, 0, 0, 0.32) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.42) 0%,
+      rgba(0, 0, 0, 0.14) 42%,
+      rgba(255, 255, 255, 0.07) 78%,
+      rgba(0, 0, 0, 0.22) 100%
+    ),
+    var(--spine-cover-image, none);
+  background-size: 100% 100%, 100% 100%, 480% 100%;
+  background-position: center, center, 0% center;
+  background-repeat: no-repeat;
+  box-shadow: inset 2px 0 5px rgba(255, 255, 255, 0.22),
+    inset -3px 0 10px rgba(0, 0, 0, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1414,17 +1437,36 @@ onUnmounted(() => {
   opacity: 1;
   transition: opacity 0.4s;
   z-index: 4;
+  overflow: hidden;
+}
+.book-spine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.35;
 }
 .book-spine.open {
   opacity: 0;
 }
 .spine-name {
+  position: relative;
+  z-index: 1;
   writing-mode: vertical-rl;
+  text-orientation: upright;
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.18em;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(180, 90, 120, 0.35);
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.75), 0 1px 3px rgba(0, 0, 0, 0.65),
+    1px 0 2px rgba(0, 0, 0, 0.45);
   max-height: 80%;
   overflow: hidden;
   text-overflow: ellipsis;

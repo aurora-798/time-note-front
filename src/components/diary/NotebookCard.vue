@@ -57,11 +57,10 @@ const tag = computed(() => {
 <style scoped>
 .notebook {
   position: relative;
-  height: 100%;
-  min-height: 0;
+  min-height: 320px;
   display: flex;
   flex-direction: column;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   background-image: linear-gradient(135deg, #fff8e1 0, #fffbeb 80%, #fef3c7 100%),
@@ -143,8 +142,10 @@ const tag = computed(() => {
 /* —— 封面 —— */
 .nb-cover {
   position: relative;
-  flex: 0 0 68%;
-  min-height: 0;
+  width: 100%;
+  height: 200px;
+  flex: none;
+  min-height: auto;
   border-radius: 8px 8px 0 0;
   background-size: cover;
   background-position: center;
@@ -207,13 +208,13 @@ const tag = computed(() => {
 
 /* —— 信息区（横线纸纹理）—— */
 .nb-info {
-  flex: 0 0 32%;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1vw, 16px);
+  justify-content: flex-start;
+  padding: 20px;
   border-radius: 0 0 8px 8px;
   background: linear-gradient(
       to bottom,
@@ -225,23 +226,24 @@ const tag = computed(() => {
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.55) inset;
 }
 .nb-title {
-  margin: 0 0 clamp(4px, 0.6vh, 8px);
-  font-size: clamp(0.82rem, 1vw, 1.1rem);
-  font-weight: 800;
-  line-height: 1.25;
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
   color: var(--text-color);
   transform: rotate(-0.5deg);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  height: 2.8em;
 }
 .nb-meta {
   display: flex;
   flex-direction: column;
-  gap: clamp(2px, 0.35vh, 5px);
-  font-size: clamp(0.72rem, 0.82vw, 0.85rem);
-  line-height: 1.3;
+  gap: 4px;
+  font-size: 0.9rem;
+  line-height: 1.5;
   color: var(--primary-color);
   transform: rotate(0.3deg);
   min-height: 0;
@@ -251,5 +253,43 @@ const tag = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  .notebook {
+    min-height: 0;
+    border-radius: 14px;
+    transform: none;
+    box-shadow: 0 10px 20px rgba(17, 24, 39, 0.06);
+  }
+  .notebook::before,
+  .notebook::after {
+    display: none;
+  }
+  .notebook:hover {
+    transform: none;
+    filter: none;
+  }
+  .nb-cover {
+    height: auto;
+    aspect-ratio: 1;
+    border-bottom: none;
+  }
+  .nb-info {
+    padding: 10px 11px 11px;
+    background: transparent;
+    box-shadow: none;
+  }
+  .nb-title {
+    font-size: 14px;
+    height: auto;
+    max-height: 2.7em;
+    margin-bottom: 6px;
+    transform: none;
+  }
+  .nb-meta {
+    font-size: 11px;
+    transform: none;
+  }
 }
 </style>

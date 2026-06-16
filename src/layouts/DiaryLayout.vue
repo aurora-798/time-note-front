@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { SwitchButton, User } from '@element-plus/icons-vue'
@@ -15,6 +15,17 @@ const seasonStore = useSeasonStore()
 
 const avatarText = computed(() => userStore.displayName.charAt(0).toUpperCase())
 const showSeasonDock = computed(() => route.name !== 'book-view')
+const isBookshelfPage = computed(() => route.name === 'bookshelf')
+
+function syncBookshelfScrollClass(name) {
+  const on = name === 'bookshelf'
+  document.documentElement.classList.toggle('page-bookshelf', on)
+  document.body.classList.toggle('page-bookshelf', on)
+  document.getElementById('app')?.classList.toggle('page-bookshelf', on)
+}
+
+watch(() => route.name, syncBookshelfScrollClass, { immediate: true })
+onUnmounted(() => syncBookshelfScrollClass(''))
 
 const links = [{ path: '/diary', label: '我的日记架', cls: 'pill-diary' }]
 
@@ -48,7 +59,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="diary-shell">
+  <div class="diary-shell" :class="{ 'page-bookshelf': isBookshelfPage }">
     <SeasonBackground />
     <!-- 顶部导航 -->
     <nav class="lala-navbar">
@@ -105,8 +116,11 @@ onMounted(() => {
       </div>
     </nav>
 
-    <main class="lala-main" :class="{ 'no-dock': !showSeasonDock }">
-      <div class="main-body">
+    <main
+      class="lala-main"
+      :class="{ 'no-dock': !showSeasonDock, 'is-shelf-scroll': isBookshelfPage }"
+    >
+      <div class="main-body" :class="{ 'is-shelf-scroll': isBookshelfPage }">
         <router-view v-slot="{ Component }">
           <transition name="fade-slide" mode="out-in">
             <component :is="Component" />
@@ -273,6 +287,13 @@ onMounted(() => {
   color: var(--text-light);
 }
 
+.diary-shell.page-bookshelf {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
 .lala-main {
   flex: 1;
   min-height: 0;
@@ -284,6 +305,11 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
 }
+.lala-main.is-shelf-scroll {
+  flex: none;
+  overflow: visible;
+  padding-bottom: calc(var(--dock-zone-h) + 50px);
+}
 .lala-main.no-dock {
   --dock-zone-h: 28px;
 }
@@ -293,10 +319,24 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
+.main-body.is-shelf-scroll {
+  flex: none;
+  min-height: auto;
+}
 .main-body > * {
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+.main-body.is-shelf-scroll > * {
+  flex: none;
+  min-height: auto;
+}
+
+@media (max-width: 768px) {
+  .lala-main.is-shelf-scroll {
+    padding-bottom: calc(56px + 32px);
+  }
 }
 
 @media (max-width: 768px) {

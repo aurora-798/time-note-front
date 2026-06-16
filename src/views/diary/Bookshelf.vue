@@ -95,57 +95,25 @@ onMounted(reload)
 
 <style scoped>
 .bookshelf {
-  --shelf-gap: 20px;
-  --shelf-rows: 2;
-  --shelf-cols: 5;
-  /* 基于视口固定行高，避免路由切换时 no-dock 改变可用高度导致卡片突然变大 */
-  --shelf-row-h: calc(
-    (
-        100vh - var(--nav-h) - var(--shelf-layout-dock-h) - 16px - 14px -
-          var(--shelf-gap) * (var(--shelf-rows) - 1)
-      ) / var(--shelf-rows)
-  );
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  width: 100%;
 }
 
 .shelf-grid {
-  flex: 1;
-  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(var(--shelf-cols), minmax(0, 1fr));
-  grid-auto-rows: var(--shelf-row-h);
-  align-content: start;
-  gap: var(--shelf-gap);
-  margin-top: 16px;
-  padding: 6px 4px 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
-}
-.shelf-grid::-webkit-scrollbar {
-  width: 6px;
-}
-.shelf-grid::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.14);
-  border-radius: 3px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 40px;
+  margin-top: 24px;
+  padding: 6px 4px 50px;
 }
 
 .shelf-grid > * {
   width: 100%;
-  height: 100%;
-  min-height: 0;
   min-width: 0;
 }
 
 /* 新建卡片（虚线笔记本）*/
 .notebook-new {
-  min-height: 0;
-  height: 100%;
+  min-height: 320px;
   border: 2px dashed rgba(230, 126, 154, 0.42);
   border-left-width: 4px;
   border-left-color: rgba(230, 126, 154, 0.55);
@@ -202,20 +170,18 @@ onMounted(reload)
   color: #c45d7a;
 }
 
-@media (max-width: 1100px) {
-  .bookshelf {
-    --shelf-cols: 4;
+@media (max-width: 768px) {
+  .shelf-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+    padding-bottom: 32px;
   }
 }
-@media (max-width: 860px) {
-  .bookshelf {
-    --shelf-cols: 3;
-  }
-}
-@media (max-width: 680px) {
-  .bookshelf {
-    --shelf-gap: 14px;
-    --shelf-cols: 2;
+@media (max-width: 480px) {
+  .shelf-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
   }
 }
 </style>
