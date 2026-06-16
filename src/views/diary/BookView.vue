@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check, Setting } from '@element-plus/icons-vue'
 import {
   getNotebook,
   listEntries,
@@ -29,6 +29,18 @@ const FLIP_MS = 900
 const TITLE_MAX_LEN = 15
 const BOOK_NAME_MAX_LEN = 10
 const TOC_PAGE_SIZE = 7
+const COVER_ANGLE_KEY = 'tn-cover-open-angle'
+const DEFAULT_COVER_OPEN_ANGLE = 155
+
+function readCoverOpenAngle() {
+  const raw = localStorage.getItem(COVER_ANGLE_KEY)
+  const n = raw != null ? Number(raw) : DEFAULT_COVER_OPEN_ANGLE
+  if (!Number.isFinite(n)) return DEFAULT_COVER_OPEN_ANGLE
+  return Math.min(180, Math.max(0, Math.round(n)))
+}
+
+const coverOpenAngle = ref(readCoverOpenAngle())
+const settingsVisible = ref(false)
 
 const searchQuery = ref('')
 const tocPage = ref(0)
@@ -48,6 +60,9 @@ const draftBookName = ref('')
 let contentObserver = null
 
 const bookFont = computed(() => (book.value ? fontFamily(book.value.font) : 'inherit'))
+const stageWrapStyle = computed(() => ({
+  '--cover-open-angle': `${coverOpenAngle.value}deg`,
+}))
 const current = computed(() => entries.value[index.value] || null)
 
 const filteredEntries = computed(() => {
@@ -206,6 +221,10 @@ watch(
 
 watch(contentTotalPages, (total) => {
   if (contentPage.value >= total) contentPage.value = Math.max(0, total - 1)
+})
+
+watch(coverOpenAngle, (angle) => {
+  localStorage.setItem(COVER_ANGLE_KEY, String(angle))
 })
 
 watch(opened, (isOpen) => {
@@ -464,7 +483,7 @@ onUnmounted(() => {
 
 <template>
   <div v-if="book" class="book-view" :style="{ '--book-font': bookFont }" @click="onBackdropClick">
-    <div class="stage-wrap">
+    <div class="stage-wrap" :style="stageWrapStyle">
     <div class="book-stage" :class="{ opened }">
       <!-- 合上时左侧引导语 -->
       <aside class="book-closed-panel" :class="{ 'is-hidden': opened }" aria-hidden="opened">
@@ -507,6 +526,13 @@ onUnmounted(() => {
                 <el-icon><Delete /></el-icon>
               </button>
             </template>
+            <button
+              class="action-btn"
+              title="设置"
+              @click.stop="settingsVisible = true"
+            >
+              <el-icon><Setting /></el-icon>
+            </button>
           </div>
           <div class="content-nav">
             <button
@@ -669,6 +695,21 @@ onUnmounted(() => {
       </div>
     </div>
     </div>
+
+    <el-dialog
+      v-model="settingsVisible"
+      title="翻开角度"
+      width="420px"
+      append-to-body
+      class="book-settings-dialog"
+      @click.stop
+    >
+      <div class="angle-setting">
+        <p class="angle-label">当前角度：<strong>{{ coverOpenAngle }}°</strong></p>
+        <el-slider v-model="coverOpenAngle" :min="0" :max="180" :step="1" />
+        <p class="angle-hint">拖动滑块调整日记本翻开角度（0°～180°）</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -759,12 +800,29 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
+.angle-setting {
+  padding: 4px 4px 0;
+}
+.angle-label {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.angle-label strong {
+  color: var(--primary-color);
+  font-size: 18px;
+}
+.angle-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
 /* ============================================================
    3D 书本舞台
    ============================================================ */
 .stage-wrap {
   --ease-book: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --cover-open-angle: 180deg; /* 设置日记本的翻开到的角度 */
   flex: 1;
   min-height: 0;
   width: 90%;
