@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useUserStore } from '@/store/user'
 import {
   listNotebooks,
   deleteNotebook,
@@ -12,6 +13,7 @@ import NotebookCard from '@/components/diary/NotebookCard.vue'
 import CreateNotebookModal from '@/components/diary/CreateNotebookModal.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const books = ref([])
 const createVisible = ref(false)
 const loading = ref(true)
@@ -71,7 +73,14 @@ async function onCreated() {
   ElMessage.success('日记本创建成功')
 }
 
-onMounted(reload)
+onMounted(() => reload({ refresh: true }))
+
+watch(
+  () => userStore.userId,
+  (id, prev) => {
+    if (id && id !== prev) reload({ refresh: true })
+  },
+)
 </script>
 
 <template>

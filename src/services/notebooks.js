@@ -168,10 +168,13 @@ export async function resolveNotebook(id) {
 }
 
 /** 创建日记本（仅提交创建请求并失效缓存，列表由页面侧 refresh 拉取） */
-export async function createNotebook({ name, coverType, cover, font, encrypted, password }) {
+export async function createNotebook({ name, coverType, cover, coverFileName, coverFileSize, coverSuffix, font, encrypted, password }) {
   await createDiaryBook({
     name: name.trim(),
     cover: resolveCoverValue(coverType, cover),
+    coverFileName: coverFileName || '',
+    coverFileSize: coverFileSize || 0,
+    coverSuffix: coverSuffix || '',
     font: font || 'default',
     encrypted: encrypted ? 1 : 0,
     password: encrypted && password ? password : '',

@@ -18,6 +18,9 @@ const form = reactive({
   coverType: 'preset',
   cover: 'c1',
   customCover: '',
+  coverFileName: '',
+  coverFileSize: 0,
+  coverSuffix: '',
   font: 'default',
   encrypted: false,
   password: '',
@@ -34,6 +37,9 @@ function reset() {
   form.coverType = 'preset'
   form.cover = 'c1'
   form.customCover = ''
+  form.coverFileName = ''
+  form.coverFileSize = 0
+  form.coverSuffix = ''
   form.font = 'default'
   form.encrypted = false
   form.password = ''
@@ -64,6 +70,9 @@ async function onUpload(e) {
   try {
     const media = await uploadFile(file, { mediaType: MEDIA_TYPE.USER_COVER })
     form.customCover = media.fileUrl
+    form.coverFileName = media.fileName
+    form.coverFileSize = media.fileSize
+    form.coverSuffix = media.suffix
     form.coverType = 'custom'
   } catch {
     // 拦截器已提示
@@ -91,6 +100,9 @@ async function submit() {
       name: form.name,
       coverType: form.coverType,
       cover: form.coverType === 'custom' ? form.customCover : form.cover,
+      coverFileName: form.coverFileName,
+      coverFileSize: form.coverFileSize,
+      coverSuffix: form.coverSuffix,
       font: form.font,
       encrypted: form.encrypted,
       password: form.password,

@@ -24,17 +24,17 @@ export const MEDIA_TYPE = {
 }
 
 // 上传文件（multipart）。
-// 后端：POST /api/file/upload，file 走 multipart，mediaType/diaryId/remark 走 query。
-export function uploadFile(file, { mediaType, diaryId, remark } = {}) {
+// 后端：POST /api/file/upload，只负责上传到对象存储并返回 FileUploadVo，不创建 Media 记录。
+export function uploadFile(file, { mediaType, remark } = {}) {
   const formData = new FormData()
   formData.append('file', file)
   return request.post('/api/file/upload', formData, {
-    params: { mediaType, diaryId, remark },
+    params: { mediaType, remark },
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
 
-// 删除已上传文件（同时清理存储与多媒体记录）
-export function deleteFile(id) {
-  return request.delete(`/api/file/${id}`)
+// 删除已上传文件（仅删对象存储）
+export function deleteFile(fileUrl) {
+  return request.delete('/api/file/delete', { params: { fileUrl } })
 }

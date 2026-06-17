@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi } from '@/api/auth'
 import { getUserById, updateUser } from '@/api/user'
+import { clearBooksCache } from '@/services/notebooks'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -22,6 +23,7 @@ export const useUserStore = defineStore('user', () => {
 
   async function login(credentials) {
     const data = await loginApi(credentials)
+    clearBooksCache()
     token.value = data.token
     userId.value = data.userId
     profile.value = {
@@ -29,6 +31,7 @@ export const useUserStore = defineStore('user', () => {
       username: data.username,
       nickname: data.nickname,
       role: data.role,
+      avatar: data.avatar || '',
     }
     persist()
     return data
@@ -51,6 +54,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function logout() {
+    clearBooksCache()
     token.value = ''
     userId.value = null
     profile.value = null
