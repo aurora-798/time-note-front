@@ -4,14 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check, Setting } from '@element-plus/icons-vue'
 import {
-  getNotebook,
+  resolveNotebook,
   listEntries,
   deleteEntry,
   saveEntry,
   updateNotebook,
   notebookCoverUrl,
   fontFamily,
-  pickDemoLocationWeather,
+  formatNotebookDate,
 } from '@/services/notebooks'
 
 const route = useRoute()
@@ -20,6 +20,8 @@ const router = useRouter()
 const bookId = route.params.bookId
 const book = ref(null)
 const entries = ref([])
+const entriesLoaded = ref(false)
+const entriesLoading = ref(false)
 const opened = ref(false)
 const index = ref(0)
 const flipDir = ref('') // 'next' | 'prev'
@@ -265,18 +267,40 @@ const spineStyle = computed(() => {
   return { '--spine-cover-image': `url(${coverUrl.value})` }
 })
 
-function load() {
-  book.value = getNotebook(bookId)
-  if (!book.value) {
-    ElMessage.error('日记本不存在')
+async function loadBook() {
+  try {
+    book.value = await resolveNotebook(bookId)
+    if (!book.value) {
+      ElMessage.error('日记本不存在')
+      router.replace('/diary')
+    }
+  } catch {
+    ElMessage.error('加载日记本失败')
     router.replace('/diary')
-    return
   }
-  entries.value = listEntries(bookId)
 }
 
-function openBook() {
+async function ensureEntries() {
+  if (entriesLoaded.value || entriesLoading.value) return
+  entriesLoading.value = true
+  try {
+    entries.value = await listEntries(bookId)
+    entriesLoaded.value = true
+  } catch {
+    ElMessage.error('加载日记列表失败')
+  } finally {
+    entriesLoading.value = false
+  }
+}
+
+async function reloadEntries() {
+  entries.value = await listEntries(bookId)
+  entriesLoaded.value = true
+}
+
+async function openBook() {
   opened.value = true
+  await ensureEntries()
 }
 function closeBook() {
   opened.value = false
@@ -355,15 +379,14 @@ function flipTo(target) {
 
 function createLocalDraft() {
   const now = Date.now()
-  const { location, weather } = pickDemoLocationWeather(now)
   return {
     id: `local-${now}`,
     bookId,
     title: '',
     content: '',
     mood: '😊',
-    location,
-    weather,
+    location: { city: '', district: '' },
+    weather: { condition: '', temperature: null },
     date: new Date(now).toISOString().slice(0, 10),
     createTime: now,
     updateTime: now,
@@ -399,7 +422,7 @@ function editCurrent() {
   nextTick(() => titleInputRef.value?.focus())
 }
 
-function saveDraft() {
+async function saveDraft() {
   const title = draftTitle.value.trim()
   const content = draftContent.value.trim()
   const bookName = draftBookName.value.trim()
@@ -423,45 +446,47 @@ function saveDraft() {
   if (!entry) return
 
   const mode = editMode.value
-  let savedId = entry.id
+  const entryId = entry.id
 
-  if (bookName !== book.value?.name) {
-    const updated = updateNotebook(bookId, { name: bookName })
-    if (updated) book.value = updated
-  }
+  try {
+    if (bookName !== book.value?.name) {
+      const updated = await updateNotebook(bookId, { name: bookName })
+      if (updated) book.value = updated
+    }
 
-  if (mode === 'new') {
-    const saved = saveEntry(
-      bookId,
-      {
+    if (mode === 'new') {
+      await saveEntry(bookId, {
         title,
         content: draftContent.value,
         mood: entry.mood || '😊',
         location: entry.location,
         weather: entry.weather,
-      },
-      { prepend: true }
-    )
-    savedId = saved.id
-  } else {
-    saveEntry(bookId, {
-      id: entry.id,
-      title,
-      content: draftContent.value,
-      mood: entry.mood,
-      date: entry.date,
-    })
-  }
+      })
+    } else {
+      await saveEntry(bookId, {
+        id: entry.id,
+        title,
+        content: draftContent.value,
+        mood: entry.mood,
+        date: entry.date,
+      })
+    }
 
-  editMode.value = null
-  draftTitle.value = ''
-  draftContent.value = ''
-  draftBookName.value = ''
-  load()
-  const savedIdx = entries.value.findIndex((e) => e.id === savedId)
-  index.value = savedIdx >= 0 ? savedIdx : 0
-  if (mode === 'new') tocPage.value = 0
-  ElMessage.success('保存成功')
+    editMode.value = null
+    draftTitle.value = ''
+    draftContent.value = ''
+    draftBookName.value = ''
+    await reloadEntries()
+    const savedIdx =
+      mode === 'new'
+        ? entries.value.findIndex((e) => e.title === title)
+        : entries.value.findIndex((e) => e.id === entryId)
+    index.value = savedIdx >= 0 ? savedIdx : 0
+    if (mode === 'new') tocPage.value = 0
+    ElMessage.success('保存成功')
+  } catch {
+    ElMessage.error('保存失败')
+  }
 }
 async function removeCurrent() {
   if (!current.value) return
@@ -471,9 +496,9 @@ async function removeCurrent() {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    deleteEntry(bookId, current.value.id)
+    await deleteEntry(bookId, current.value.id)
     ElMessage.success('已删除')
-    load()
+    await reloadEntries()
     if (index.value >= entries.value.length) index.value = Math.max(0, entries.value.length - 1)
   } catch {
     /* 取消 */
@@ -481,7 +506,7 @@ async function removeCurrent() {
 }
 
 onMounted(() => {
-  load()
+  loadBook()
   nextTick(bindLayoutObservers)
 })
 
@@ -654,7 +679,7 @@ onUnmounted(() => {
                 <h2 v-else class="book-name">{{ book.name }}</h2>
               </div>
               <p class="book-sub">{{ entries.length }} 篇 · 创建于
-                {{ new Date(book.createTime).toLocaleDateString() }}
+                {{ formatNotebookDate(book.createTime) }}
               </p>
               <div class="toc-search" @click.stop>
                 <el-input

@@ -26,7 +26,6 @@ async function load() {
     const data = await pageDiaries({
       pageNum: pager.pageNum,
       pageSize: pager.pageSize,
-      userId: userStore.userId,
     })
     list.value = data.records || []
     pager.total = Number(data.total) || 0
@@ -56,7 +55,7 @@ async function handleDelete(item) {
     confirmButtonText: '删除',
     cancelButtonText: '取消',
   })
-  await deleteDiary(item.id)
+  await deleteDiary({ id: item.id })
   ElMessage.success('已删除')
   // 删除后若当前页空了则回退一页
   if (list.value.length === 1 && pager.pageNum > 1) pager.pageNum--

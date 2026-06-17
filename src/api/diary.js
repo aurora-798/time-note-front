@@ -1,28 +1,68 @@
 import request from '@/utils/request'
 
+export const DIARY_PAGE_SIZE = 20
+
 // 分页查询日记
-export function pageDiaries(params) {
-  return request.get('/api/diary/page', { params })
+export function pageDiaries(data) {
+  return request.post('/api/diary/page', data)
 }
 
-// 根据 ID 查询日记
-export function getDiaryById(id) {
-  return request.get(`/api/diary/${id}`)
+/** 按标准分页循环拉取，合并全部 records */
+export async function fetchAllDiaries(params = {}) {
+  const pageSize = params.pageSize ?? DIARY_PAGE_SIZE
+  let pageNum = 1
+  const records = []
+
+  while (true) {
+    const data = await pageDiaries({ ...params, pageNum, pageSize })
+    const batch = data.records || []
+    records.push(...batch)
+
+    const pages = Number(data.pages) || 1
+    if (pageNum >= pages || batch.length === 0) break
+    pageNum += 1
+  }
+
+  return records
+}
+
+// 根据日记本 ID 和日记 ID 查询单条日记
+export function getDiary(bookId, diaryId) {
+  return request.post(`/api/diary/${bookId}/${diaryId}`)
+}
+
+// 根据 ID 查询日记（用于仅有 diaryId 的场景，通过分页接口查找）
+export async function getDiaryById(id) {
+  let pageNum = 1
+  const targetId = String(id)
+
+  while (true) {
+    const data = await pageDiaries({ pageNum, pageSize: DIARY_PAGE_SIZE })
+    const records = data.records || []
+    const found = records.find((r) => String(r.id) === targetId)
+    if (found) return found
+
+    const pages = Number(data.pages) || 1
+    if (pageNum >= pages || records.length === 0) break
+    pageNum += 1
+  }
+
+  throw new Error('日记不存在')
 }
 
 // 新增日记
 export function addDiary(data) {
-  return request.post('/api/diary', data)
+  return request.post('/api/diary/create', data)
 }
 
-// 更新日记
-export function updateDiary(data) {
-  return request.put('/api/diary', data)
+// 编辑日记
+export function editDiary(data) {
+  return request.post('/api/diary/edit', data)
 }
 
 // 删除日记
-export function deleteDiary(id) {
-  return request.delete(`/api/diary/${id}`)
+export function deleteDiary(data) {
+  return request.post('/api/diary/delete', data)
 }
 
 // TODO: 后端暂无「AI 润色日记」接口。

@@ -3,7 +3,7 @@ import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Picture, VideoCamera, Edit, View, Plus } from '@element-plus/icons-vue'
-import { addDiary, updateDiary, getDiaryById } from '@/api/diary'
+import { addDiary, editDiary, getDiaryById } from '@/api/diary'
 import { uploadFile } from '@/api/media'
 import { resolveMediaUrl } from '@/utils/url'
 import { renderMarkdown } from '@/utils/markdown'
@@ -30,6 +30,7 @@ const today = new Date().toISOString().slice(0, 10)
 
 const form = reactive({
   id: null,
+  bookId: null,
   diaryDate: today,
   title: '',
   content: '',
@@ -75,6 +76,7 @@ async function loadDiary() {
   const data = await getDiaryById(route.params.id)
   Object.assign(form, {
     id: data.id,
+    bookId: data.bookId || null,
     diaryDate: data.diaryDate || today,
     title: data.title || '',
     content: data.content || '',
@@ -203,17 +205,20 @@ async function handleSave(status) {
   await formRef.value.validate()
   saving.value = true
   try {
-    const payload = {
-      ...form,
-      userId: userStore.userId,
-      status,
-      wordCount: wordCount.value,
-      isEdit: 1,
-    }
     if (isEdit.value) {
-      await updateDiary(payload)
+      await editDiary({
+        bookId: form.bookId,
+        id: form.id,
+        title: form.title,
+        content: form.content,
+      })
     } else {
-      await addDiary(payload)
+      await addDiary({
+        bookId: form.bookId,
+        title: form.title,
+        content: form.content,
+        // 新增日记时如果有 bookId 则关联到该日记本
+      })
     }
     ElMessage.success(status === 1 ? '已发布' : '已保存草稿')
     router.push('/diary')

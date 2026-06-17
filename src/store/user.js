@@ -5,7 +5,7 @@ import { getUserById, updateUser } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
-  const userId = ref(Number(localStorage.getItem('userId')) || null)
+  const userId = ref(localStorage.getItem('userId') || null)
   const profile = ref(JSON.parse(localStorage.getItem('profile') || 'null'))
 
   const isLoggedIn = computed(() => !!token.value)

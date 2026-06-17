@@ -15,9 +15,16 @@ export function deleteMedia(id) {
   return request.delete(`/api/media/${id}`)
 }
 
+// mediaType：1-图片(image)，2-视频(video)，3-头像(avatar)，4-用户封面(user-cover)
+export const MEDIA_TYPE = {
+  IMAGE: 1,
+  VIDEO: 2,
+  AVATAR: 3,
+  USER_COVER: 4,
+}
+
 // 上传文件（multipart）。
 // 后端：POST /api/file/upload，file 走 multipart，mediaType/diaryId/remark 走 query。
-// mediaType：1-图片，2-视频，3-头像。返回 SysMedia（含 id、fileUrl、fileName、fileSize、suffix）。
 export function uploadFile(file, { mediaType, diaryId, remark } = {}) {
   const formData = new FormData()
   formData.append('file', file)

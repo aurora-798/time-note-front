@@ -1,13 +1,27 @@
 import axios from 'axios'
+import JSONbig from 'json-bigint'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { useUserStore } from '@/store/user'
 import { API_BASE } from '@/utils/url'
 
+// 后端雪花 ID 超出 JS Number 安全整数范围，解析为字符串保留精度
+const parseJson = JSONbig({ storeAsString: true })
+
 // 后端地址：直接请求全地址（需后端开启 CORS）
 const service = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
+  transformResponse: [
+    (data) => {
+      if (typeof data !== 'string' || !data) return data
+      try {
+        return parseJson.parse(data)
+      } catch {
+        return data
+      }
+    },
+  ],
 })
 
 // 请求拦截：携带 token

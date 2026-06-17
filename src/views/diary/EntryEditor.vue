@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Back, Picture, VideoCamera, Check, Close } from '@element-plus/icons-vue'
 import {
-  getNotebook,
+  resolveNotebook,
   getEntry,
   saveEntry,
   fontFamily,
@@ -35,19 +35,21 @@ const form = reactive({
 const bookFont = computed(() => (book.value ? fontFamily(book.value.font) : 'inherit'))
 const wordCount = computed(() => form.content.replace(/\s/g, '').length)
 
-function load() {
-  book.value = getNotebook(bookId)
-  if (typeof window !== 'undefined') {
-    window.__ee = { bookId, entryId, found: !!book.value }
-  }
-  if (!book.value) {
-    ElMessage.error('日记本不存在')
+async function load() {
+  try {
+    book.value = await resolveNotebook(bookId)
+    if (!book.value) {
+      ElMessage.error('日记本不存在')
+      router.replace('/diary')
+      return
+    }
+    if (isEdit.value) {
+      const e = await getEntry(bookId, entryId)
+      if (e) Object.assign(form, { ...e })
+    }
+  } catch {
+    ElMessage.error('加载失败')
     router.replace('/diary')
-    return
-  }
-  if (isEdit.value) {
-    const e = getEntry(bookId, entryId)
-    if (e) Object.assign(form, { ...e })
   }
 }
 
@@ -76,16 +78,21 @@ function removeMedia(i) {
   form.media.splice(i, 1)
 }
 
-function save() {
+async function save() {
   if (!form.content.trim() && !form.title.trim()) {
     ElMessage.warning('写点什么再保存吧')
     return
   }
   saving.value = true
-  saveEntry(bookId, { ...form })
-  saving.value = false
-  ElMessage.success('已保存')
-  router.push(`/diary/book/${bookId}`)
+  try {
+    await saveEntry(bookId, { ...form })
+    ElMessage.success('已保存')
+    router.push(`/diary/book/${bookId}`)
+  } catch {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

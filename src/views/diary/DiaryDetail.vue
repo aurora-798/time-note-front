@@ -48,7 +48,7 @@ async function handleDelete() {
     confirmButtonText: '删除',
     cancelButtonText: '取消',
   })
-  await deleteDiary(diary.value.id)
+  await deleteDiary({ id: diary.value.id })
   ElMessage.success('已删除')
   router.push('/diary')
 }

@@ -54,7 +54,6 @@ async function handleLogout() {
 
 onMounted(() => {
   seasonStore.init()
-  if (userStore.isLoggedIn) userStore.fetchProfile().catch(() => {})
 })
 </script>
 

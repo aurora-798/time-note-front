@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Lock, Delete } from '@element-plus/icons-vue'
-import { notebookCoverUrl } from '@/services/notebooks'
+import { notebookCoverUrl, formatNotebookDate } from '@/services/notebooks'
 
 const props = defineProps({
   notebook: { type: Object, required: true },
@@ -12,10 +12,7 @@ const coverStyle = computed(() => ({
   backgroundImage: `url(${notebookCoverUrl(props.notebook.coverType, props.notebook.cover)})`,
 }))
 
-const createdLabel = computed(() => {
-  const d = new Date(props.notebook.createTime)
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
-})
+const createdLabel = computed(() => formatNotebookDate(props.notebook.createTime))
 
 const tag = computed(() => {
   if (props.notebook.encrypted) return { text: '加密', cls: 'tag-encrypted' }
@@ -47,7 +44,7 @@ const tag = computed(() => {
     <div class="nb-info">
       <h3 class="nb-title">{{ notebook.name }}</h3>
       <div class="nb-meta">
-        <span>创建于：{{ createdLabel }}</span>
+        <span v-if="createdLabel">创建于：{{ createdLabel }}</span>
         <span>{{ notebook.entryCount }} 篇日记</span>
       </div>
     </div>

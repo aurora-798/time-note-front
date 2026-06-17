@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Check, Loading } from '@element-plus/icons-vue'
-import { uploadFile } from '@/api/media'
+import { uploadFile, MEDIA_TYPE } from '@/api/media'
 import { COVER_PRESETS, FONT_OPTIONS, createNotebook } from '@/services/notebooks'
 
 const props = defineProps({ modelValue: Boolean })
@@ -25,6 +25,7 @@ const form = reactive({
 
 const fileInput = ref()
 const uploadingCover = ref(false)
+const saving = ref(false)
 
 const nameLen = computed(() => form.name.length)
 
@@ -61,7 +62,7 @@ async function onUpload(e) {
   }
   uploadingCover.value = true
   try {
-    const media = await uploadFile(file, { mediaType: 1 })
+    const media = await uploadFile(file, { mediaType: MEDIA_TYPE.USER_COVER })
     form.customCover = media.fileUrl
     form.coverType = 'custom'
   } catch {
@@ -71,7 +72,7 @@ async function onUpload(e) {
   }
 }
 
-function submit() {
+async function submit() {
   if (uploadingCover.value) {
     ElMessage.warning('封面正在上传，请稍候')
     return
@@ -84,15 +85,22 @@ function submit() {
     ElMessage.warning('请设置加密密码')
     return
   }
-  createNotebook({
-    name: form.name,
-    coverType: form.coverType,
-    cover: form.coverType === 'custom' ? form.customCover : form.cover,
-    font: form.font,
-    encrypted: form.encrypted,
-    password: form.password,
-  })
-  emit('created')
+  saving.value = true
+  try {
+    await createNotebook({
+      name: form.name,
+      coverType: form.coverType,
+      cover: form.coverType === 'custom' ? form.customCover : form.cover,
+      font: form.font,
+      encrypted: form.encrypted,
+      password: form.password,
+    })
+    emit('created')
+  } catch {
+    ElMessage.error('创建日记本失败')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -208,7 +216,7 @@ function submit() {
 
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" @click="submit">创建</el-button>
+      <el-button type="primary" :loading="saving" @click="submit">创建</el-button>
     </template>
   </el-dialog>
 </template>
