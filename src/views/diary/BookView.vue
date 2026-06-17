@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check, Setting } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check, Setting, Calendar } from '@element-plus/icons-vue'
 import {
   resolveNotebook,
   listEntries,
@@ -13,6 +13,7 @@ import {
   fontFamily,
   formatNotebookDate,
 } from '@/services/notebooks'
+import { getWeather } from '@/api/diary'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +59,10 @@ const editMode = ref(null) // null | 'new' | 'edit'
 const draftTitle = ref('')
 const draftContent = ref('')
 const draftBookName = ref('')
+
+const weatherData = ref(null)
+const weatherLoading = ref(false)
+const weatherError = ref('')
 
 let contentObserver = null
 
@@ -320,17 +325,93 @@ function fmtDate(e) {
   return e?.date || ''
 }
 
-function fmtEntryMeta(e) {
-  const loc = e?.location
-  const w = e?.weather
-  const locStr = loc?.city && loc?.district ? `${loc.city} · ${loc.district}` : ''
-  const weatherStr =
-    w?.condition != null && w?.temperature != null ? `${w.condition} ${w.temperature}°C` : ''
+const WEEK_LABELS = ['', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+
+function formatWeekLabel(week) {
+  const n = Number(week)
+  if (!Number.isFinite(n) || n < 1 || n > 7) return ''
+  return WEEK_LABELS[n]
+}
+
+const weekLabel = computed(() => formatWeekLabel(weatherData.value?.week))
+
+function formatTemperature(value) {
+  if (value == null || value === '') return ''
+  const text = String(value).trim()
+  return text.endsWith('°') || text.endsWith('℃') || text.endsWith('°C') ? text : `${text}°C`
+}
+
+function fmtWeatherMeta() {
+  if (weatherLoading.value) return '定位中…'
+  if (weatherError.value) return weatherError.value
+  const data = weatherData.value
+  if (!data) return ''
+  const locParts = [data.city, data.name].filter(Boolean)
+  const locStr = locParts.join(' · ')
+  const weatherParts = [data.weather, formatTemperature(data.temperature)].filter(Boolean)
+  const weatherStr = weatherParts.join(' ')
   if (locStr && weatherStr) return `${locStr} | ${weatherStr}`
   return locStr || weatherStr
 }
 
-const entryMetaText = computed(() => fmtEntryMeta(current.value))
+const weatherMetaText = computed(() => fmtWeatherMeta())
+
+function weatherToEntryFields(data) {
+  if (!data) {
+    return {
+      location: { city: '', district: '' },
+      weather: { condition: '', temperature: null },
+    }
+  }
+  const temp = data.temperature
+  const parsedTemp =
+    temp != null && temp !== '' && !Number.isNaN(Number(temp)) ? Number(temp) : null
+  return {
+    location: { city: data.city || '', district: data.name || '' },
+    weather: { condition: data.weather || '', temperature: parsedTemp },
+  }
+}
+
+function requestGeolocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('当前浏览器不支持定位'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        }),
+      (err) => {
+        const msg =
+          err.code === 1
+            ? '需要定位权限才能获取天气'
+            : err.code === 2
+              ? '无法获取当前位置'
+              : '定位请求超时'
+        reject(new Error(msg))
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    )
+  })
+}
+
+async function loadWeather() {
+  weatherLoading.value = true
+  weatherError.value = ''
+  try {
+    const { latitude, longitude } = await requestGeolocation()
+    weatherData.value = await getWeather({ lat: latitude, lng: longitude })
+  } catch (err) {
+    weatherData.value = null
+    const msg = err?.response?.data?.msg || err?.message || '获取天气失败'
+    weatherError.value = msg
+  } finally {
+    weatherLoading.value = false
+  }
+}
 
 const CLOSED_GUIDES = [
   { main: '轻触封面', sub: '翻开属于你的故事' },
@@ -379,14 +460,14 @@ function flipTo(target) {
 
 function createLocalDraft() {
   const now = Date.now()
+  const { location, weather } = weatherToEntryFields(weatherData.value)
   return {
     id: `local-${now}`,
     bookId,
     title: '',
     content: '',
-    mood: '😊',
-    location: { city: '', district: '' },
-    weather: { condition: '', temperature: null },
+    location,
+    weather,
     date: new Date(now).toISOString().slice(0, 10),
     createTime: now,
     updateTime: now,
@@ -455,19 +536,18 @@ async function saveDraft() {
     }
 
     if (mode === 'new') {
+      const { location, weather } = weatherToEntryFields(weatherData.value)
       await saveEntry(bookId, {
         title,
         content: draftContent.value,
-        mood: entry.mood || '😊',
-        location: entry.location,
-        weather: entry.weather,
+        location,
+        weather,
       })
     } else {
       await saveEntry(bookId, {
         id: entry.id,
         title,
         content: draftContent.value,
-        mood: entry.mood,
         date: entry.date,
       })
     }
@@ -507,6 +587,7 @@ async function removeCurrent() {
 
 onMounted(() => {
   loadBook()
+  loadWeather()
   nextTick(bindLayoutObservers)
 })
 
@@ -591,23 +672,27 @@ onUnmounted(() => {
           <div class="page-inner right-inner">
             <template v-if="current">
               <div class="entry-head">
-                <span class="entry-mood">{{ current.mood || '📖' }}</span>
-                <div class="entry-head-text">
-                  <div class="entry-title-slot">
-                    <input
-                      v-show="isEditing"
-                      ref="titleInputRef"
-                      v-model="draftTitle"
-                      class="entry-title-input"
-                      placeholder="这里用于书写日记名称"
-                      :maxlength="TITLE_MAX_LEN"
-                      @click.stop
-                    />
-                    <h3 v-show="!isEditing" class="entry-title">{{ current.title || '无标题' }}</h3>
-                  </div>
-                  <span class="entry-date">{{ fmtDate(current) }}</span>
-                </div>
-                <span v-if="entryMetaText" class="entry-meta">{{ entryMetaText }}</span>
+                <span class="entry-date">
+                  <el-icon class="entry-date-icon"><Calendar /></el-icon>
+                  <span class="entry-date-text">{{ fmtDate(current) }}</span>
+                  <span v-if="weekLabel" class="entry-week">{{ weekLabel }}</span>
+                </span>
+                <span
+                  class="entry-weather-meta"
+                  :class="{ 'is-error': weatherError, 'is-loading': weatherLoading }"
+                >{{ weatherMetaText }}</span>
+              </div>
+              <div class="entry-title-slot">
+                <input
+                  v-show="isEditing"
+                  ref="titleInputRef"
+                  v-model="draftTitle"
+                  class="entry-title-input"
+                  placeholder="这里用于书写日记名称"
+                  :maxlength="TITLE_MAX_LEN"
+                  @click.stop
+                />
+                <h3 v-show="!isEditing" class="entry-title">{{ current.title || '无标题' }}</h3>
               </div>
               <div ref="entryContentSlotRef" class="entry-content-slot">
                 <textarea
@@ -638,14 +723,18 @@ onUnmounted(() => {
         <div v-if="flipping && leafContentPage !== null && current" class="leaf" :class="flipDir">
           <div class="page-inner right-inner">
             <div class="entry-head">
-              <span class="entry-mood">{{ current.mood || '📖' }}</span>
-              <div class="entry-head-text">
-                <div class="entry-title-slot">
-                  <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
-                </div>
-                <span class="entry-date">{{ fmtDate(current) }}</span>
-              </div>
-              <span v-if="entryMetaText" class="entry-meta">{{ entryMetaText }}</span>
+              <span class="entry-date">
+                <el-icon class="entry-date-icon"><Calendar /></el-icon>
+                <span class="entry-date-text">{{ fmtDate(current) }}</span>
+                <span v-if="weekLabel" class="entry-week">{{ weekLabel }}</span>
+              </span>
+              <span
+                class="entry-weather-meta"
+                :class="{ 'is-error': weatherError, 'is-loading': weatherLoading }"
+              >{{ weatherMetaText }}</span>
+            </div>
+            <div class="entry-title-slot">
+              <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
             </div>
             <div class="entry-content-slot">
               <div class="entry-content" :style="contentAreaStyle">
@@ -1301,18 +1390,59 @@ onUnmounted(() => {
 .entry-head {
   flex-shrink: 0;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 14px;
+  gap: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px dashed rgba(180, 140, 120, 0.3);
+  cursor: default;
 }
-.entry-mood {
-  font-size: 34px;
+.entry-date {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-color);
+}
+.entry-date-icon {
+  font-size: 15px;
+  color: #c49a6c;
+  opacity: 0.92;
+}
+.entry-date-text {
+  flex-shrink: 0;
+}
+.entry-week {
+  flex-shrink: 0;
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.entry-weather-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-style: italic;
+  color: #888;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-weather-meta.is-loading {
+  color: var(--text-light);
+}
+.entry-weather-meta.is-error {
+  font-style: normal;
+  color: #c97a5a;
 }
 .entry-title-slot {
   flex-shrink: 0;
   height: 24px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
 }
@@ -1326,19 +1456,6 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.entry-head-text {
-  flex: 1;
-  min-width: 0;
-}
-.entry-meta {
-  flex-shrink: 0;
-  margin-left: 12px;
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--text-light);
-  white-space: nowrap;
-  text-align: right;
 }
 .entry-title-input {
   display: block;
@@ -1358,11 +1475,6 @@ onUnmounted(() => {
 .entry-title-input::placeholder {
   color: var(--text-light);
   font-weight: 600;
-}
-.entry-date {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--text-light);
 }
 .entry-content-slot {
   flex: 1;

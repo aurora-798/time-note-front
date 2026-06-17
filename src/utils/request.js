@@ -48,7 +48,9 @@ service.interceptors.response.use(
       return res.data
     }
     // 业务错误
-    ElMessage.error(res.msg || '请求失败')
+    if (!response.config?.skipErrorHandler) {
+      ElMessage.error(res.msg || '请求失败')
+    }
     if (res.code === 401) {
       handleUnauthorized()
     }

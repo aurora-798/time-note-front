@@ -65,6 +65,11 @@ export function deleteDiary(data) {
   return request.post('/api/diary/delete', data)
 }
 
+// 根据经纬度获取气象数据
+export function getWeather(data) {
+  return request.post('/api/diary/weather', data, { skipErrorHandler: true })
+}
+
 // TODO: 后端暂无「AI 润色日记」接口。
 // 写日记页流程：用户在编辑区写下当天内容 → 点「润色」→ 携带「当前正文 + 本次润色需求」
 // 调用 AI，流式返回润色后的 Markdown 日记（不保存对话历史，每次只基于当前正文润色）。
