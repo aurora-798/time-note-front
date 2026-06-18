@@ -36,17 +36,17 @@ const seasonStore = useSeasonStore()
   gap: 10px;
   padding: 8px 14px 8px 12px;
   border-radius: 100px;
-  background: rgba(255, 252, 248, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: var(--dock-bg);
+  border: 1px solid var(--dock-border);
   box-shadow: 0 4px 24px rgba(230, 126, 154, 0.1), 0 2px 12px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 1px 0 var(--dock-inset);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   transition: box-shadow 0.35s;
 }
 .season-dock:hover {
   box-shadow: 0 8px 32px rgba(230, 126, 154, 0.16), 0 4px 16px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 #fff;
+    inset 0 1px 0 var(--dock-inset);
 }
 .season-dock__label {
   display: flex;
@@ -65,7 +65,7 @@ const seasonStore = useSeasonStore()
 }
 .season-dock__sub {
   font-size: 9px;
-  color: rgba(0, 0, 0, 0.32);
+  color: var(--dock-sub-text);
   letter-spacing: 0.08em;
   line-height: 1.2;
 }

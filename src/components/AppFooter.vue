@@ -13,7 +13,7 @@ const year = new Date().getFullYear()
   width: 100%;
   flex-shrink: 0;
   border-top: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--footer-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

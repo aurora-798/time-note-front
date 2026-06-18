@@ -60,7 +60,7 @@ const tag = computed(() => {
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  background-image: linear-gradient(135deg, #fff8e1 0, #fffbeb 80%, #fef3c7 100%),
+  background-image: var(--notebook-cover-bg),
     linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
   background-size: 100% 100%, 20px 20px, 20px 20px;
@@ -68,7 +68,7 @@ const tag = computed(() => {
   transform: perspective(1300px) rotateX(1.1deg) rotateY(-1.2deg) translateZ(0);
   transform-style: preserve-3d;
   box-shadow: -14px 18px 24px rgba(123, 93, 118, 0.22),
-    -6px 8px 12px rgba(146, 112, 138, 0.16), 0 3px 0 rgba(255, 255, 255, 0.68) inset,
+    -6px 8px 12px rgba(146, 112, 138, 0.16), 0 3px 0 var(--notebook-inset-highlight) inset,
     0 -1px 0 rgba(188, 144, 176, 0.24) inset;
   transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.28s,
     filter 0.22s;
@@ -108,8 +108,8 @@ const tag = computed(() => {
   border-radius: 0 6px 6px 0;
   background: repeating-linear-gradient(
     to right,
-    rgba(255, 248, 225, 0.95) 0,
-    rgba(255, 248, 225, 0.95) 2px,
+    var(--notebook-page-edge) 0,
+    var(--notebook-page-edge) 2px,
     rgba(228, 214, 190, 0.6) 2px,
     rgba(228, 214, 190, 0.6) 3px
   );
@@ -123,7 +123,7 @@ const tag = computed(() => {
 .notebook:hover {
   transform: perspective(1300px) rotateX(2deg) rotateY(-2deg) translate3d(-3px, -3px, 0);
   box-shadow: -19px 24px 28px rgba(118, 85, 114, 0.3),
-    -9px 12px 15px rgba(145, 108, 136, 0.2), 0 4px 0 rgba(255, 255, 255, 0.78) inset,
+    -9px 12px 15px rgba(145, 108, 136, 0.2), 0 4px 0 var(--notebook-inset-highlight) inset,
     0 -1px 0 rgba(184, 142, 173, 0.3) inset;
   filter: brightness(1.01);
 }
@@ -213,14 +213,10 @@ const tag = computed(() => {
   justify-content: flex-start;
   padding: 20px;
   border-radius: 0 0 8px 8px;
-  background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.92),
-      rgba(255, 248, 225, 0.96)
-    ),
+  background: var(--notebook-info-bg),
     linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
   background-size: 100% 100%, 20px 20px;
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.55) inset;
+  box-shadow: 0 -1px 0 var(--notebook-inset-highlight) inset;
 }
 .nb-title {
   margin: 0 0 10px;

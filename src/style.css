@@ -60,6 +60,103 @@
   /* Element Plus 主色对齐 */
   --el-color-primary: #e67e9a;
 
+  /* —— AI 助手 —— */
+  --assistant-surface: var(--surface-strong);
+  --assistant-border: var(--border-color);
+  --assistant-mode-search: var(--accent-blue);
+  --assistant-mode-think: var(--accent-purple);
+  --assistant-mode-canvas: var(--accent-yellow);
+
+  /* —— 组件语义层（亮/暗共用名，值随主题切换）—— */
+  --paper-gradient: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
+  --paper-gradient-soft: linear-gradient(
+    135deg,
+    rgba(255, 253, 247, 0.98) 0%,
+    rgba(255, 248, 236, 0.96) 100%
+  );
+  --paper-gradient-hover: linear-gradient(
+    135deg,
+    rgba(255, 250, 248, 1) 0%,
+    rgba(255, 241, 245, 0.98) 100%
+  );
+  --paper-gradient-active: linear-gradient(
+    135deg,
+    rgba(255, 244, 248, 1) 0%,
+    rgba(255, 236, 244, 0.98) 100%
+  );
+  --card-gradient: linear-gradient(165deg, #fffbf8 0, #fff5f7 55%, #fef8f9 100%);
+  --card-gradient-alt: linear-gradient(165deg, #fffbf8 0, #fff5f7 50%, #fef8f9 100%);
+  --surface-solid: #fff;
+  --surface-muted: rgba(255, 255, 255, 0.85);
+  --surface-glass: rgba(255, 255, 255, 0.9);
+  --surface-glass-strong: rgba(255, 255, 255, 0.92);
+  --bubble-bg: #fff;
+  --bubble-border-user: rgba(255, 154, 183, 0.2);
+  --bubble-border-assistant: rgba(241, 230, 236, 0.8);
+  --bubble-shadow-user: 0 3px 14px rgba(230, 126, 154, 0.16);
+  --bubble-shadow-assistant: 0 3px 14px rgba(0, 0, 0, 0.07);
+  --nav-bg: rgba(255, 255, 255, 0.72);
+  --nav-border: rgba(255, 255, 255, 0.8);
+  --nav-shadow: 0 4px 24px rgba(230, 126, 154, 0.08);
+  --logo-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82);
+  --dock-bg: rgba(255, 252, 248, 0.72);
+  --dock-border: rgba(255, 255, 255, 0.85);
+  --dock-inset: rgba(255, 255, 255, 0.95);
+  --dock-sub-text: rgba(0, 0, 0, 0.32);
+  --footer-bg: rgba(255, 255, 255, 0.42);
+  --season-overlay: transparent;
+  --btn-surface: rgba(255, 255, 255, 0.92);
+  --btn-surface-hover: #fff;
+  --hint-card-bg: #fff;
+  --notebook-cover-bg: linear-gradient(135deg, #fff8e1 0, #fffbeb 80%, #fef3c7 100%);
+  --notebook-info-bg: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 248, 225, 0.96)
+  );
+  --notebook-page-edge: rgba(255, 248, 225, 0.95);
+  --notebook-inset-highlight: rgba(255, 255, 255, 0.68);
+  --book-page-inset: rgba(255, 255, 255, 0.75);
+  --book-page-inset-hover: rgba(255, 255, 255, 0.85);
+  --shelf-loading-text: rgba(138, 107, 115, 0.82);
+  --new-icon-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 240, 245, 0.6));
+  --new-icon-bg-hover: linear-gradient(
+    145deg,
+    rgba(255, 182, 193, 0.25),
+    rgba(230, 126, 154, 0.15)
+  );
+  --paper-line-color: rgba(120, 90, 110, 0.07);
+  --mood-active-bg: rgba(255, 154, 183, 0.2);
+  --inset-highlight: rgba(255, 255, 255, 0.72);
+
+  /* —— 登录页（tn-* 语义变量）—— */
+  --tn-bg-solid: var(--primary-bg);
+  --tn-bg: var(--secondary-bg);
+  --tn-text: var(--text-color);
+  --tn-text-soft: var(--text-secondary);
+  --tn-text-faint: var(--text-light);
+  --tn-primary: #6c3ff5;
+  --tn-glass: rgba(255, 255, 255, 0.72);
+  --tn-glass-strong: rgba(255, 255, 255, 0.92);
+  --tn-glass-border: rgba(255, 255, 255, 0.85);
+  --tn-glass-blur: 14px;
+  --tn-border: var(--border-color);
+  --tn-card: var(--secondary-bg);
+  --tn-shadow: var(--shadow-light);
+  --tn-shadow-lift: var(--shadow-medium);
+  --tn-glow: 0 8px 28px rgba(108, 63, 245, 0.22);
+  --tn-glow-strong: 0 14px 40px rgba(108, 63, 245, 0.32);
+  --tn-gradient-primary: linear-gradient(135deg, #6c3ff5 0%, #8b5cf6 100%);
+  --tn-gradient-aurora: linear-gradient(
+    135deg,
+    rgba(108, 63, 245, 0.12),
+    rgba(139, 92, 246, 0.12)
+  );
+  --tn-aurora-1: rgba(108, 63, 245, 0.3);
+  --tn-aurora-2: rgba(58, 214, 255, 0.25);
+  --tn-aurora-3: rgba(255, 154, 183, 0.2);
+  --tn-aurora-alpha: 0.6;
+
   /* —— 背景氛围（对齐 laladiary：轻 blur + 主题底色，无厚重遮罩）—— */
   --bg-blur: 5px;
 
@@ -143,6 +240,14 @@ p {
 .season-bg-image.is-loading {
   opacity: 0;
 }
+.season-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--season-overlay);
+  pointer-events: none;
+  transition: background 0.35s ease;
+}
 
 @media (max-width: 767px) {
   .season-bg-image {
@@ -213,4 +318,136 @@ p {
   .season-bg-image {
     transition: none;
   }
+}
+
+/* ============================================================
+   暗色模式
+   ============================================================ */
+html[data-theme='dark'] {
+  --text-primary: #e4e6eb;
+  --text-secondary: #a8adb5;
+  --text-light: #7a8088;
+  --text-color: #f0f2f5;
+
+  --primary-bg: #121218;
+  --secondary-bg: #1a1a22;
+  --surface: rgba(28, 28, 36, 0.85);
+  --surface-strong: rgba(36, 36, 44, 0.92);
+  --border-color: rgba(255, 255, 255, 0.1);
+
+  --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-pink: 0 8px 28px rgba(230, 126, 154, 0.18);
+  --shadow-pink-strong: 0 14px 40px rgba(230, 126, 154, 0.26);
+
+  --bg-blur: 6px;
+
+  --paper-gradient: linear-gradient(150deg, #2a2824 0%, #252320 60%, #1f1d1a 100%);
+  --paper-gradient-soft: linear-gradient(
+    135deg,
+    rgba(42, 40, 36, 0.98) 0%,
+    rgba(37, 35, 32, 0.96) 100%
+  );
+  --paper-gradient-hover: linear-gradient(
+    135deg,
+    rgba(48, 44, 46, 1) 0%,
+    rgba(42, 38, 42, 0.98) 100%
+  );
+  --paper-gradient-active: linear-gradient(
+    135deg,
+    rgba(52, 44, 48, 1) 0%,
+    rgba(46, 38, 44, 0.98) 100%
+  );
+  --card-gradient: linear-gradient(165deg, #2a2830 0, #24232b 55%, #1f1e26 100%);
+  --card-gradient-alt: linear-gradient(165deg, #2a2830 0, #24232b 50%, #1f1e26 100%);
+  --surface-solid: #2e2e38;
+  --surface-muted: rgba(36, 36, 44, 0.9);
+  --surface-glass: rgba(40, 40, 50, 0.92);
+  --surface-glass-strong: rgba(44, 44, 54, 0.95);
+  --bubble-bg: #2e2e38;
+  --bubble-border-user: rgba(255, 154, 183, 0.22);
+  --bubble-border-assistant: rgba(255, 255, 255, 0.08);
+  --bubble-shadow-user: 0 3px 14px rgba(0, 0, 0, 0.28);
+  --bubble-shadow-assistant: 0 3px 14px rgba(0, 0, 0, 0.22);
+  --nav-bg: rgba(24, 24, 30, 0.88);
+  --nav-border: rgba(255, 255, 255, 0.06);
+  --nav-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --logo-text-shadow: none;
+  --dock-bg: rgba(28, 28, 36, 0.85);
+  --dock-border: rgba(255, 255, 255, 0.1);
+  --dock-inset: rgba(255, 255, 255, 0.06);
+  --dock-sub-text: rgba(255, 255, 255, 0.42);
+  --footer-bg: rgba(24, 24, 30, 0.65);
+  --season-overlay: rgba(12, 12, 18, 0.58);
+  --btn-surface: rgba(44, 44, 54, 0.95);
+  --btn-surface-hover: #363642;
+  --hint-card-bg: #2e2e38;
+  --notebook-cover-bg: linear-gradient(135deg, #3d3520 0, #4a4228 80%, #5c5030 100%);
+  --notebook-info-bg: linear-gradient(
+    to bottom,
+    rgba(44, 42, 38, 0.95),
+    rgba(38, 36, 32, 0.98)
+  );
+  --notebook-page-edge: rgba(60, 54, 40, 0.8);
+  --notebook-inset-highlight: rgba(255, 255, 255, 0.06);
+  --book-page-inset: rgba(255, 255, 255, 0.06);
+  --book-page-inset-hover: rgba(255, 255, 255, 0.1);
+  --shelf-loading-text: rgba(180, 170, 175, 0.75);
+  --new-icon-bg: linear-gradient(145deg, rgba(60, 56, 64, 0.9), rgba(50, 46, 54, 0.6));
+  --new-icon-bg-hover: linear-gradient(
+    145deg,
+    rgba(255, 154, 183, 0.18),
+    rgba(230, 126, 154, 0.1)
+  );
+  --paper-line-color: rgba(255, 255, 255, 0.06);
+  --mood-active-bg: rgba(255, 154, 183, 0.15);
+  --inset-highlight: rgba(255, 255, 255, 0.06);
+
+  --tn-bg-solid: #121218;
+  --tn-bg: #1a1a22;
+  --tn-text: #e4e6eb;
+  --tn-text-soft: #a8adb5;
+  --tn-text-faint: #7a8088;
+  --tn-primary: #a78bfa;
+  --tn-glass: rgba(28, 28, 36, 0.85);
+  --tn-glass-strong: rgba(36, 36, 44, 0.92);
+  --tn-glass-border: rgba(255, 255, 255, 0.08);
+  --tn-border: rgba(255, 255, 255, 0.1);
+  --tn-card: #1e1e26;
+  --tn-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --tn-shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --tn-glow: 0 8px 28px rgba(167, 139, 250, 0.22);
+  --tn-glow-strong: 0 14px 40px rgba(167, 139, 250, 0.3);
+  --tn-gradient-primary: linear-gradient(135deg, #7c5ce0 0%, #a78bfa 100%);
+  --tn-gradient-aurora: linear-gradient(
+    135deg,
+    rgba(124, 92, 224, 0.15),
+    rgba(167, 139, 250, 0.12)
+  );
+  --tn-aurora-1: rgba(124, 92, 224, 0.28);
+  --tn-aurora-2: rgba(58, 214, 255, 0.18);
+  --tn-aurora-3: rgba(255, 154, 183, 0.14);
+  --tn-aurora-alpha: 0.45;
+
+  --el-bg-color: #1a1a22;
+  --el-bg-color-overlay: #24242e;
+  --el-fill-color-blank: #2e2e38;
+  --el-fill-color-light: #363642;
+  --el-text-color-primary: #e4e6eb;
+  --el-text-color-regular: #a8adb5;
+  --el-text-color-secondary: #7a8088;
+  --el-border-color: rgba(255, 255, 255, 0.1);
+  --el-border-color-light: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='dark'] .glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(rgba(255, 154, 183, 0.5), rgba(192, 165, 255, 0.5));
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(rgba(255, 154, 183, 0.7), rgba(230, 126, 154, 0.6));
 }

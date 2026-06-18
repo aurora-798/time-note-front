@@ -2,16 +2,14 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Avatar, Sunny, Moon, View } from '@element-plus/icons-vue'
+import { User, Lock, Avatar, View } from '@element-plus/icons-vue'
 import { register as registerApi } from '@/api/auth'
 import { useUserStore } from '@/store/user'
-import { useThemeStore } from '@/store/theme'
 import CartoonCharacters from '@/components/auth/CartoonCharacters.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const themeStore = useThemeStore()
 
 const mode = ref('login')
 const loading = ref(false)
@@ -105,9 +103,6 @@ async function handleRegister() {
       <div class="brand-panel">
         <div class="brand-header">
           <div class="brand-logo">时光笔录</div>
-          <div class="theme-toggle" @click="themeStore.toggle()">
-            <el-icon :size="20"><component :is="themeStore.theme === 'dark' ? Sunny : Moon" /></el-icon>
-          </div>
         </div>
 
         <!-- 卡通角色 -->
@@ -303,29 +298,8 @@ async function handleRegister() {
   z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-/* 主题切换 */
-.theme-toggle {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  cursor: pointer;
-  color: var(--tn-text);
-  background: var(--tn-glass);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--tn-glass-border);
-  box-shadow: var(--tn-shadow);
-  transition: transform 0.25s, box-shadow 0.25s;
-}
-.theme-toggle:hover {
-  transform: translateY(-2px) rotate(12deg);
-  box-shadow: var(--tn-glow);
+  width: 100%;
 }
 
 /* 分屏布局 */

@@ -291,7 +291,7 @@ onMounted(async () => {
 .banner,
 .info-card,
 .form-card {
-  background: linear-gradient(165deg, #fffbf8 0, #fff5f7 55%, #fef8f9 100%);
+  background: var(--card-gradient);
   border: 1px solid rgba(255, 154, 183, 0.28);
   box-shadow: var(--shadow-pink);
   backdrop-filter: blur(var(--glass-blur));
@@ -342,7 +342,7 @@ onMounted(async () => {
   box-shadow: var(--shadow-pink);
 }
 .vip-badge.plain {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-glass-strong);
   color: var(--text-secondary);
   box-shadow: none;
   border: 1px solid rgba(255, 154, 183, 0.24);
@@ -356,12 +356,12 @@ onMounted(async () => {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: var(--btn-surface) !important;
   border-color: rgba(255, 154, 183, 0.32) !important;
   color: var(--primary-color) !important;
 }
 .edit-btn:hover {
-  background: #fff !important;
+  background: var(--btn-surface-hover) !important;
   border-color: var(--accent-pink) !important;
 }
 
@@ -432,7 +432,7 @@ onMounted(async () => {
 .form-card :deep(.el-input__wrapper),
 .form-card :deep(.el-select__wrapper),
 .form-card :deep(.el-input-number) {
-  background: #fff;
+  background: var(--surface-solid);
   box-shadow: 0 0 0 1px rgba(255, 154, 183, 0.18) inset;
 }
 .form-card :deep(.el-input__wrapper:hover),
@@ -455,7 +455,7 @@ onMounted(async () => {
   padding: 0;
   border-radius: 14px;
   border: 1px dashed rgba(255, 154, 183, 0.35);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--btn-surface);
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .avatar-uploader :deep(.el-upload-dragger:hover) {
@@ -507,7 +507,7 @@ onMounted(async () => {
   margin-top: 16px;
 }
 .form-actions :deep(.el-button:not(.save-btn)) {
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--btn-surface);
   border-color: rgba(255, 154, 183, 0.28);
   color: var(--text-secondary);
 }

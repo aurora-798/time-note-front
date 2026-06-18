@@ -2,9 +2,10 @@
 import { computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { SwitchButton, User } from '@element-plus/icons-vue'
+import { SwitchButton, User, Sunny, Moon } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useSeasonStore } from '@/store/season'
+import { useThemeStore } from '@/store/theme'
 import AppFooter from '@/components/AppFooter.vue'
 import SeasonBackground from '@/components/diary/SeasonBackground.vue'
 import SeasonDock from '@/components/diary/SeasonDock.vue'
@@ -13,11 +14,17 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const seasonStore = useSeasonStore()
+const themeStore = useThemeStore()
 
 const avatarText = computed(() => userStore.displayName.charAt(0).toUpperCase())
-const showSeasonDock = computed(() => route.name !== 'book-view')
+const showSeasonDock = computed(
+  () => route.name !== 'book-view' && route.name !== 'assistant',
+)
 const isBookshelfPage = computed(() => route.name === 'bookshelf')
-const showFooter = computed(() => !['book-view', 'entry-new', 'entry-edit'].includes(route.name))
+const isAssistantPage = computed(() => route.name === 'assistant')
+const showFooter = computed(
+  () => !['book-view', 'entry-new', 'entry-edit', 'assistant'].includes(route.name),
+)
 
 function syncBookshelfScrollClass(name) {
   const on = name === 'bookshelf'
@@ -29,7 +36,10 @@ function syncBookshelfScrollClass(name) {
 watch(() => route.name, syncBookshelfScrollClass, { immediate: true })
 onUnmounted(() => syncBookshelfScrollClass(''))
 
-const links = [{ path: '/diary', label: '我的日记架', cls: 'pill-diary' }]
+const links = [
+  { path: '/diary', label: '我的日记架', cls: 'pill-diary' },
+  { path: '/assistant', label: 'AI 助手', cls: 'pill-assistant' },
+]
 
 function isActive(path) {
   return route.path.startsWith(path)
@@ -107,6 +117,10 @@ onMounted(() => {
                 <el-dropdown-item @click="go('/profile')">
                   <el-icon><User /></el-icon> 个人中心
                 </el-dropdown-item>
+                <el-dropdown-item @click="themeStore.toggle()">
+                  <el-icon><component :is="themeStore.theme === 'dark' ? Sunny : Moon" /></el-icon>
+                  {{ themeStore.theme === 'dark' ? '亮色模式' : '暗色模式' }}
+                </el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon> 退出登录
                 </el-dropdown-item>
@@ -119,9 +133,16 @@ onMounted(() => {
 
     <main
       class="lala-main"
-      :class="{ 'no-dock': !showSeasonDock, 'is-shelf-scroll': isBookshelfPage }"
+      :class="{
+        'no-dock': !showSeasonDock,
+        'is-shelf-scroll': isBookshelfPage,
+        'is-assistant': isAssistantPage,
+      }"
     >
-      <div class="main-body" :class="{ 'is-shelf-scroll': isBookshelfPage }">
+      <div
+        class="main-body"
+        :class="{ 'is-shelf-scroll': isBookshelfPage, 'is-assistant': isAssistantPage }"
+      >
         <router-view v-slot="{ Component }">
           <transition name="fade-slide" mode="out-in">
             <component :is="Component" />
@@ -161,11 +182,11 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--nav-bg);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 24px rgba(230, 126, 154, 0.08);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: var(--nav-shadow);
 }
 .navbar-inner {
   max-width: 1280px;
@@ -202,7 +223,7 @@ onMounted(() => {
   font-weight: 800;
   letter-spacing: 0.04em;
   color: var(--text-primary);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82);
+  text-shadow: var(--logo-text-shadow);
 }
 
 .nav-links {
@@ -252,6 +273,22 @@ onMounted(() => {
   background: rgba(255, 154, 183, 0.28);
   border-color: rgba(230, 126, 154, 0.45);
   font-weight: 700;
+}
+.pill-assistant {
+  background: rgba(192, 165, 255, 0.16);
+  border: 1px solid rgba(192, 165, 255, 0.28);
+  color: #8b6fd4;
+}
+.pill-assistant:hover {
+  background: rgba(192, 165, 255, 0.24);
+  border-color: rgba(192, 165, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(192, 165, 255, 0.14);
+}
+.pill-assistant.is-active {
+  background: rgba(192, 165, 255, 0.28);
+  border-color: rgba(139, 111, 212, 0.45);
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(192, 165, 255, 0.16);
 }
 
 .nav-right {
@@ -313,6 +350,21 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
 }
+.lala-main.is-assistant {
+  padding-bottom: 0;
+}
+.main-body.is-assistant {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.main-body.is-assistant > * {
+  flex: 1;
+  min-height: 0;
+}
+
 .lala-main.is-shelf-scroll {
   flex: none;
   overflow: visible;

@@ -958,7 +958,7 @@ onUnmounted(() => {
   padding: 0;
   border: 1px solid var(--border-color);
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 16px;
@@ -1130,7 +1130,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border-radius: 4px 10px 10px 4px;
-  background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
+  background: var(--paper-gradient);
   box-shadow: inset 0 0 40px rgba(180, 140, 120, 0.08);
   overflow: hidden;
 }
@@ -1160,7 +1160,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border-radius: 4px 10px 10px 4px;
-  background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
+  background: var(--paper-gradient);
   box-shadow: inset 18px 0 30px rgba(150, 110, 120, 0.1),
     6px 0 26px rgba(120, 80, 100, 0.22);
   overflow: hidden;
@@ -1310,8 +1310,8 @@ onUnmounted(() => {
   cursor: pointer;
   overflow: hidden;
   border-left: 2px solid rgba(212, 160, 18, 0.82);
-  background: linear-gradient(135deg, rgba(255, 253, 247, 0.98) 0%, rgba(255, 248, 236, 0.96) 100%);
-  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+  background: var(--paper-gradient-soft);
+  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 var(--book-page-inset) inset;
   transition: background 0.2s, box-shadow 0.22s, transform 0.22s, border-color 0.2s;
 }
 /* 页堆层叠（与书架日记本 card 右侧效果一致） */
@@ -1325,8 +1325,8 @@ onUnmounted(() => {
   border-radius: 0 3px 3px 0;
   background: repeating-linear-gradient(
     to right,
-    rgba(255, 248, 225, 0.95) 0,
-    rgba(255, 248, 225, 0.95) 1px,
+    var(--notebook-page-edge) 0,
+    var(--notebook-page-edge) 1px,
     rgba(228, 214, 190, 0.58) 1px,
     rgba(228, 214, 190, 0.58) 2px
   );
@@ -1336,8 +1336,8 @@ onUnmounted(() => {
   pointer-events: none;
 }
 .toc li:hover {
-  background: linear-gradient(135deg, rgba(255, 250, 248, 1) 0%, rgba(255, 241, 245, 0.98) 100%);
-  box-shadow: -3px 3px 7px rgba(123, 93, 118, 0.14), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  background: var(--paper-gradient-hover);
+  box-shadow: -3px 3px 7px rgba(123, 93, 118, 0.14), 0 1px 0 var(--book-page-inset-hover) inset;
   transform: translateX(-1px);
 }
 .toc li:hover::after {
@@ -1345,7 +1345,7 @@ onUnmounted(() => {
   transform: skewY(2deg) translateX(1px);
 }
 .toc li.active {
-  background: linear-gradient(135deg, rgba(255, 244, 248, 1) 0%, rgba(255, 236, 244, 0.98) 100%);
+  background: var(--paper-gradient-active);
   box-shadow: -3px 3px 8px rgba(230, 126, 154, 0.16), 0 0 0 1px rgba(230, 126, 154, 0.12) inset;
   border-left-color: var(--primary-color);
 }
@@ -1353,12 +1353,12 @@ onUnmounted(() => {
   cursor: default;
 }
 .toc li.no-click:hover {
-  background: linear-gradient(135deg, rgba(255, 253, 247, 0.98) 0%, rgba(255, 248, 236, 0.96) 100%);
-  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+  background: var(--paper-gradient-soft);
+  box-shadow: -1px 2px 4px rgba(123, 93, 118, 0.08), 0 1px 0 var(--book-page-inset) inset;
   transform: none;
 }
 .toc li.no-click.active {
-  background: linear-gradient(135deg, rgba(255, 244, 248, 1) 0%, rgba(255, 236, 244, 0.98) 100%);
+  background: var(--paper-gradient-active);
   box-shadow: -3px 3px 8px rgba(230, 126, 154, 0.16), 0 0 0 1px rgba(230, 126, 154, 0.12) inset;
   border-left-color: var(--primary-color);
 }
@@ -1418,7 +1418,7 @@ onUnmounted(() => {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--surface-glass);
   color: var(--primary-color);
   cursor: pointer;
   font-size: 14px;
@@ -1435,7 +1435,7 @@ onUnmounted(() => {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--surface-muted);
   color: var(--primary-color);
   cursor: pointer;
   font-size: 16px;
@@ -1748,7 +1748,7 @@ onUnmounted(() => {
 .cover-back {
   transform: rotateY(180deg);
   border-radius: 10px 4px 4px 10px;
-  background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
+  background: var(--paper-gradient);
   box-shadow: inset -18px 0 30px rgba(150, 110, 120, 0.12);
 }
 

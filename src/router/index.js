@@ -37,6 +37,12 @@ const routes = [
         meta: { title: '编辑日记', hidden: true },
       },
       {
+        path: 'assistant',
+        name: 'assistant',
+        component: () => import('@/views/assistant/AssistantView.vue'),
+        meta: { title: 'AI 助手' },
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: () => import('@/views/profile/ProfileView.vue'),

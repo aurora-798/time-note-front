@@ -258,8 +258,8 @@ async function submit() {
   padding: 11px 56px 11px 14px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: #fff;
-  font-size: 14px;
+  background: var(--surface-solid);
+  color: var(--text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .cn-password {
@@ -338,7 +338,7 @@ async function submit() {
   border-radius: 12px;
   background-size: cover;
   background-position: center;
-  background-color: #fafafa;
+  background-color: var(--secondary-bg);
   transform-origin: center center;
   transition: transform 0.22s cubic-bezier(0.34, 1.2, 0.64, 1), border-color 0.2s,
     box-shadow 0.2s;
@@ -386,7 +386,7 @@ async function submit() {
   padding: 7px 16px;
   border: 1px solid rgba(255, 154, 183, 0.2);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-glass-strong);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -395,7 +395,7 @@ async function submit() {
 }
 .cn-font:hover {
   border-color: rgba(255, 154, 183, 0.38);
-  background: rgba(255, 248, 251, 0.96);
+  background: var(--surface-strong);
   color: var(--text-primary);
 }
 .cn-font.active {

@@ -194,7 +194,7 @@ async function save() {
   padding: 10px 20px;
   border: none;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--surface-muted);
   color: var(--primary-color);
   font-weight: 700;
   cursor: pointer;
@@ -219,7 +219,7 @@ async function save() {
   position: relative;
   border-radius: 6px 16px 16px 6px;
   padding: 32px 36px 24px;
-  background: linear-gradient(150deg, #fffdf7 0%, #fff8ec 60%, #fef3df 100%);
+  background: var(--paper-gradient);
   border-left: 10px solid var(--primary-color);
   box-shadow: 0 18px 50px rgba(150, 110, 120, 0.18),
     inset 0 0 40px rgba(180, 140, 120, 0.06);
@@ -232,7 +232,7 @@ async function save() {
   border-radius: 6px 16px 16px 6px;
   background-image: repeating-linear-gradient(
     transparent 0 35px,
-    rgba(120, 90, 110, 0.07) 35px 36px
+    var(--paper-line-color) 35px 36px
   );
   pointer-events: none;
 }
@@ -266,7 +266,7 @@ async function save() {
 }
 .mood.active {
   opacity: 1;
-  background: rgba(255, 154, 183, 0.2);
+  background: var(--mood-active-bg);
   transform: scale(1.1);
 }
 
@@ -355,7 +355,7 @@ async function save() {
   padding: 7px 16px;
   border: 1px solid var(--border-color);
   border-radius: 18px;
-  background: #fff;
+  background: var(--surface-solid);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
