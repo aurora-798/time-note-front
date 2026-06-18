@@ -5,6 +5,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { SwitchButton, User } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useSeasonStore } from '@/store/season'
+import AppFooter from '@/components/AppFooter.vue'
 import SeasonBackground from '@/components/diary/SeasonBackground.vue'
 import SeasonDock from '@/components/diary/SeasonDock.vue'
 
@@ -16,6 +17,7 @@ const seasonStore = useSeasonStore()
 const avatarText = computed(() => userStore.displayName.charAt(0).toUpperCase())
 const showSeasonDock = computed(() => route.name !== 'book-view')
 const isBookshelfPage = computed(() => route.name === 'bookshelf')
+const showFooter = computed(() => !['book-view', 'entry-new', 'entry-edit'].includes(route.name))
 
 function syncBookshelfScrollClass(name) {
   const on = name === 'bookshelf'
@@ -128,7 +130,12 @@ onMounted(() => {
       </div>
     </main>
 
-    <SeasonDock v-if="showSeasonDock" />
+    <div v-if="showSeasonDock || showFooter" class="diary-bottom">
+      <div v-if="showSeasonDock" class="diary-bottom-dock">
+        <SeasonDock />
+      </div>
+      <AppFooter v-if="showFooter" />
+    </div>
   </div>
 </template>
 
@@ -139,6 +146,8 @@ onMounted(() => {
   --dock-zone-h: 108px;
   /* 书架行高计算专用，不随路由切换 no-dock 变化，避免进入日记本时卡片高度跳动 */
   --shelf-layout-dock-h: 108px;
+  min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -299,7 +308,7 @@ onMounted(() => {
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 28px var(--dock-zone-h);
+  padding: 0 28px 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -307,7 +316,7 @@ onMounted(() => {
 .lala-main.is-shelf-scroll {
   flex: none;
   overflow: visible;
-  padding-bottom: calc(var(--dock-zone-h) + 50px);
+  padding-bottom: 28px;
 }
 .lala-main.no-dock {
   --dock-zone-h: 28px;
@@ -332,13 +341,24 @@ onMounted(() => {
   min-height: auto;
 }
 
-@media (max-width: 768px) {
-  .lala-main.is-shelf-scroll {
-    padding-bottom: calc(56px + 32px);
-  }
+.diary-bottom {
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: auto;
+}
+
+.diary-bottom-dock {
+  width: 100%;
+  padding: 6px max(20px, env(safe-area-inset-left, 0)) 10px
+    max(20px, env(safe-area-inset-right, 0));
 }
 
 @media (max-width: 768px) {
+  .diary-bottom-dock {
+    padding: 4px max(14px, env(safe-area-inset-left, 0)) 8px
+      max(14px, env(safe-area-inset-right, 0));
+  }
+
   .diary-shell {
     --nav-h: 52px;
   }
@@ -355,7 +375,7 @@ onMounted(() => {
     font-size: 13px;
   }
   .lala-main {
-    padding: 16px 16px 56px;
+    padding: 16px 16px 24px;
   }
 }
 </style>

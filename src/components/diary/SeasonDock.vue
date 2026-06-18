@@ -28,10 +28,9 @@ const seasonStore = useSeasonStore()
 
 <style scoped>
 .season-dock {
-  position: fixed;
-  bottom: max(20px, env(safe-area-inset-bottom, 0));
-  left: max(20px, env(safe-area-inset-left, 0));
-  z-index: 200;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -113,9 +112,7 @@ const seasonStore = useSeasonStore()
 }
 @media (max-width: 767px) {
   .season-dock {
-    bottom: max(14px, env(safe-area-inset-bottom, 0));
-    left: max(14px, env(safe-area-inset-left, 0));
-    max-width: calc(100vw - 28px);
+    max-width: 100%;
   }
   .bg-thumb {
     width: 38px;
