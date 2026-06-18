@@ -109,7 +109,6 @@ function toFrontendEntry(e) {
     bookId: asId(e.bookId),
     title: e.title || '',
     content: e.content || '',
-    mood: '📖',
     location: { city: e.name || '', district: e.adm2 || '' },
     weather: {
       condition: e.text || '',
@@ -117,7 +116,7 @@ function toFrontendEntry(e) {
     },
     date: e.diaryDate || '',
     wordCount: e.wordCount || 0,
-    createTime: e.createTime ? new Date(e.createTime).getTime() : Date.now(),
+    createTime: parseBackendDateTime(e.createTime) || Date.now(),
     updateTime: e.updateTime ? new Date(e.updateTime).getTime() : Date.now(),
   }
 }

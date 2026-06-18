@@ -60,10 +60,6 @@ const draftTitle = ref('')
 const draftContent = ref('')
 const draftBookName = ref('')
 
-const weatherData = ref(null)
-const weatherLoading = ref(false)
-const weatherError = ref('')
-
 let contentObserver = null
 
 const bookFont = computed(() => (book.value ? fontFamily(book.value.font) : 'inherit'))
@@ -322,7 +318,45 @@ function onBackdropClick(e) {
 }
 
 function fmtDate(e) {
-  return e?.date || ''
+  const raw = e?.date
+  if (raw == null || raw === '') return ''
+  const text = String(raw).trim()
+  const datePart = (text.includes('T') ? text.split('T')[0] : text.split(' ')[0])
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(datePart)) return datePart
+  const match = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (match) return `${match[1]}/${match[2]}/${match[3]}`
+  return datePart
+}
+
+function padDatePart(n) {
+  return String(n).padStart(2, '0')
+}
+
+function formatEntryDateTime(value) {
+  if (value == null || value === '') return ''
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    return `${d.getFullYear()}-${padDatePart(d.getMonth() + 1)}-${padDatePart(d.getDate())} ${padDatePart(d.getHours())}:${padDatePart(d.getMinutes())}`
+  }
+  const text = String(value).trim()
+  if (!text) return ''
+  const normalized = text.includes('T') ? text.replace('T', ' ') : text
+  return normalized.length >= 16 ? normalized.slice(0, 16) : normalized
+}
+
+function fmtTocDate(entry) {
+  if (!entry) return ''
+  const fromCreateTime = formatEntryDateTime(entry.createTime)
+  if (fromCreateTime) return fromCreateTime
+  return formatEntryDateTime(entry.date) || entry.date || ''
+}
+
+function tocWordCount(entry, entryIndex) {
+  if (isEditing.value && entryIndex === index.value) {
+    return (draftContent.value || '').replace(/\s/g, '').length
+  }
+  return entry?.wordCount || 0
 }
 
 const WEEK_LABELS = ['', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
@@ -333,7 +367,20 @@ function formatWeekLabel(week) {
   return WEEK_LABELS[n]
 }
 
-const weekLabel = computed(() => formatWeekLabel(weatherData.value?.week))
+function weekFromDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  const jsDay = d.getDay()
+  return formatWeekLabel(jsDay === 0 ? 7 : jsDay)
+}
+
+const weekLabel = computed(() => {
+  const entry = current.value
+  if (!entry) return ''
+  if (entry.week != null) return formatWeekLabel(entry.week)
+  return weekFromDate(entry.date)
+})
 
 function formatTemperature(value) {
   if (value == null || value === '') return ''
@@ -341,20 +388,41 @@ function formatTemperature(value) {
   return text.endsWith('°') || text.endsWith('℃') || text.endsWith('°C') ? text : `${text}°C`
 }
 
-function fmtWeatherMeta() {
-  if (weatherLoading.value) return '定位中…'
-  if (weatherError.value) return weatherError.value
-  const data = weatherData.value
-  if (!data) return ''
-  const locParts = [data.city, data.name].filter(Boolean)
+function fmtWeatherMeta(entry) {
+  if (!entry) return ''
+  if (entry._weatherLoading) return '定位中…'
+  if (entry._weatherError) return entry._weatherError
+  const loc = entry.location
+  const w = entry.weather
+  const locParts = [loc?.city, loc?.district].filter(Boolean)
   const locStr = locParts.join(' · ')
-  const weatherParts = [data.weather, formatTemperature(data.temperature)].filter(Boolean)
+  const temp =
+    w?.temperature != null && w.temperature !== ''
+      ? formatTemperature(w.temperature)
+      : ''
+  const weatherParts = [w?.condition, temp].filter(Boolean)
   const weatherStr = weatherParts.join(' ')
   if (locStr && weatherStr) return `${locStr} | ${weatherStr}`
   return locStr || weatherStr
 }
 
-const weatherMetaText = computed(() => fmtWeatherMeta())
+const weatherMetaText = computed(() => fmtWeatherMeta(current.value))
+
+function patchEntryById(entryId, patch) {
+  const idx = entries.value.findIndex((e) => e.id === entryId)
+  if (idx < 0) return
+  entries.value[idx] = { ...entries.value[idx], ...patch }
+}
+
+function buildWeatherPatch(data) {
+  const { location, weather } = weatherToEntryFields(data)
+  const patch = { location, weather, week: data?.week ?? null }
+  if (data?.nowTime) {
+    const datePart = String(data.nowTime).slice(0, 10)
+    if (datePart) patch.date = datePart
+  }
+  return patch
+}
 
 function weatherToEntryFields(data) {
   if (!data) {
@@ -398,18 +466,22 @@ function requestGeolocation() {
   })
 }
 
-async function loadWeather() {
-  weatherLoading.value = true
-  weatherError.value = ''
+async function fetchWeatherForEntry(entryId) {
+  if (!entryId) return
+  patchEntryById(entryId, { _weatherLoading: true, _weatherError: '' })
   try {
     const { latitude, longitude } = await requestGeolocation()
-    weatherData.value = await getWeather({ lat: latitude, lng: longitude })
+    const data = await getWeather({ lat: latitude, lng: longitude })
+    patchEntryById(entryId, {
+      ...buildWeatherPatch(data),
+      _weatherLoading: false,
+      _weatherError: '',
+    })
   } catch (err) {
-    weatherData.value = null
-    const msg = err?.response?.data?.msg || err?.message || '获取天气失败'
-    weatherError.value = msg
-  } finally {
-    weatherLoading.value = false
+    patchEntryById(entryId, {
+      _weatherLoading: false,
+      _weatherError: err?.response?.data?.msg || err?.message || '获取天气失败',
+    })
   }
 }
 
@@ -460,14 +532,16 @@ function flipTo(target) {
 
 function createLocalDraft() {
   const now = Date.now()
-  const { location, weather } = weatherToEntryFields(weatherData.value)
   return {
     id: `local-${now}`,
     bookId,
     title: '',
     content: '',
-    location,
-    weather,
+    location: { city: '', district: '' },
+    weather: { condition: '', temperature: null },
+    week: null,
+    _weatherLoading: true,
+    _weatherError: '',
     date: new Date(now).toISOString().slice(0, 10),
     createTime: now,
     updateTime: now,
@@ -480,10 +554,11 @@ function enterEditMode(mode) {
   draftBookName.value = book.value?.name || ''
 }
 
-function writeNew() {
+async function writeNew() {
   if (editMode.value) return
   if (!opened.value) opened.value = true
-  entries.value.unshift(createLocalDraft())
+  const draft = createLocalDraft()
+  entries.value.unshift(draft)
   searchQuery.value = ''
   tocPage.value = 0
   index.value = 0
@@ -492,6 +567,7 @@ function writeNew() {
   draftTitle.value = ''
   draftContent.value = ''
   nextTick(() => titleInputRef.value?.focus())
+  await fetchWeatherForEntry(draft.id)
 }
 
 function editCurrent() {
@@ -536,12 +612,11 @@ async function saveDraft() {
     }
 
     if (mode === 'new') {
-      const { location, weather } = weatherToEntryFields(weatherData.value)
       await saveEntry(bookId, {
         title,
         content: draftContent.value,
-        location,
-        weather,
+        location: entry.location,
+        weather: entry.weather,
       })
     } else {
       await saveEntry(bookId, {
@@ -587,7 +662,6 @@ async function removeCurrent() {
 
 onMounted(() => {
   loadBook()
-  loadWeather()
   nextTick(bindLayoutObservers)
 })
 
@@ -678,8 +752,9 @@ onUnmounted(() => {
                   <span v-if="weekLabel" class="entry-week">{{ weekLabel }}</span>
                 </span>
                 <span
+                  v-if="weatherMetaText || current._weatherLoading || current._weatherError"
                   class="entry-weather-meta"
-                  :class="{ 'is-error': weatherError, 'is-loading': weatherLoading }"
+                  :class="{ 'is-error': current._weatherError, 'is-loading': current._weatherLoading }"
                 >{{ weatherMetaText }}</span>
               </div>
               <div class="entry-title-slot">
@@ -729,8 +804,9 @@ onUnmounted(() => {
                 <span v-if="weekLabel" class="entry-week">{{ weekLabel }}</span>
               </span>
               <span
+                v-if="weatherMetaText || current._weatherLoading || current._weatherError"
                 class="entry-weather-meta"
-                :class="{ 'is-error': weatherError, 'is-loading': weatherLoading }"
+                :class="{ 'is-error': current._weatherError, 'is-loading': current._weatherLoading }"
               >{{ weatherMetaText }}</span>
             </div>
             <div class="entry-title-slot">
@@ -767,9 +843,7 @@ onUnmounted(() => {
                 />
                 <h2 v-else class="book-name">{{ book.name }}</h2>
               </div>
-              <p class="book-sub">{{ entries.length }} 篇 · 创建于
-                {{ formatNotebookDate(book.createTime) }}
-              </p>
+              <p class="book-sub">{{ entries.length }} 篇 · 创建于 {{ formatNotebookDate(book.createTime) }}</p>
               <div class="toc-search" @click.stop>
                 <el-input
                   v-model="searchQuery"
@@ -787,12 +861,15 @@ onUnmounted(() => {
                     :class="{ active: i === index, 'no-click': isEditing }"
                     @click.stop="flipTo(i)"
                   >
-                    <span class="toc-title">{{
-                      isEditing && i === index
-                        ? draftTitle.trim() || '未命名'
-                        : e.title || '无标题'
-                    }}</span>
-                    <span class="toc-date">{{ fmtDate(e) }}</span>
+                    <span class="toc-title">
+                      <span class="toc-title-text">{{
+                        isEditing && i === index
+                          ? draftTitle.trim() || '未命名'
+                          : e.title || '无标题'
+                      }}</span>
+                      <span class="toc-word-count">{{ tocWordCount(e, i) }} 字</span>
+                    </span>
+                    <span class="toc-date">{{ fmtTocDate(e) }}</span>
                   </li>
                 </ul>
                 <p v-else class="toc-empty">未找到匹配日记</p>
@@ -1164,8 +1241,14 @@ onUnmounted(() => {
 }
 .book-sub {
   margin: 4px 0 12px;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--text-light);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .toc-search {
   flex-shrink: 0;
@@ -1211,13 +1294,13 @@ onUnmounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 10px;
   scrollbar-width: none;
 }
 .toc li {
   position: relative;
-  flex: 0 0 calc((100% - 12px) / 7);
-  height: calc((100% - 12px) / 7);
+  flex: 0 0 calc((100% - 60px) / 7);
+  height: calc((100% - 60px) / 7);
   min-height: 0;
   display: flex;
   align-items: center;
@@ -1282,15 +1365,32 @@ onUnmounted(() => {
 .toc-title {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toc-title-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.35;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.toc-date {
-  font-size: 11px;
+.toc-word-count {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.35;
   color: var(--text-light);
+}
+.toc-date {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text-light);
+  white-space: nowrap;
 }
 
 /* —— 目录 / 正文翻页 —— */
