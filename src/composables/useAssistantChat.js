@@ -1,5 +1,7 @@
 import { ref, nextTick } from 'vue'
-import { mockAssistantStream, detectMessageMode } from '@/services/assistant'
+import { chat } from '@/api/assistant'
+import { detectMessageMode } from '@/services/assistant'
+import { useUserStore } from '@/store/user'
 
 let idCounter = 0
 function nextId() {
@@ -22,6 +24,7 @@ function readFilesAsDataUrls(files) {
 }
 
 export function useAssistantChat() {
+  const userStore = useUserStore()
   const messages = ref([])
   const isLoading = ref(false)
   const listRef = ref(null)
@@ -69,19 +72,18 @@ export function useAssistantChat() {
     abortController = new AbortController()
 
     try {
-      await mockAssistantStream(
-        { text: trimmed, files },
+      const data = await chat(
         {
-          signal: abortController.signal,
-          onChunk: (chunk) => {
-            messages.value[assistantIndex].content += chunk
-            scrollToBottom()
-          },
+          userId: userStore.userId != null ? String(userStore.userId) : '',
+          userMessage: trimmed,
         },
+        { signal: abortController.signal },
       )
+      messages.value[assistantIndex].content = data?.result || ''
+      await scrollToBottom()
     } catch (err) {
       if (err?.name !== 'AbortError') {
-        messages.value[assistantIndex].content += '\n\n（回复生成出错，请稍后再试。）'
+        messages.value[assistantIndex].content = '（回复生成出错，请稍后再试。）'
       }
     } finally {
       messages.value[assistantIndex].streaming = false

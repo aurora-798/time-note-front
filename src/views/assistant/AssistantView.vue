@@ -109,13 +109,11 @@ function onSend(text, files) {
   overflow-y: auto;
   padding: 4px 2px calc(112px + var(--input-float-bottom));
   scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .messages-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-.messages-scroll::-webkit-scrollbar-thumb {
-  background: rgba(230, 126, 154, 0.3);
-  border-radius: 3px;
+  display: none;
 }
 
 .empty-hints {

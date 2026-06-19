@@ -43,16 +43,6 @@ defineProps({
   transform: translateY(-8px);
 }
 
-.chat-list::-webkit-scrollbar {
-  width: 6px;
-}
-.chat-list::-webkit-scrollbar-thumb {
-  background: rgba(230, 126, 154, 0.3);
-  border-radius: 3px;
-}
-.chat-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(230, 126, 154, 0.45);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .msg-fade-enter-active,
