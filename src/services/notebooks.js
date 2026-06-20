@@ -238,6 +238,10 @@ export async function saveEntry(bookId, entry) {
       id: asId(entry.id),
       title: entry.title || '',
       content: entry.content || '',
+      name: entry.location?.city || '',
+      adm2: entry.location?.district || '',
+      text: entry.weather?.condition || '',
+      temp: entry.weather?.temperature != null ? String(entry.weather.temperature) : '',
     })
     return { ...entry, id: asId(entry.id) }
   }

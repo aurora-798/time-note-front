@@ -570,13 +570,15 @@ async function writeNew() {
   await fetchWeatherForEntry(draft.id)
 }
 
-function editCurrent() {
+async function editCurrent() {
   if (!current.value || editMode.value) return
+  const entryId = current.value.id
   enterEditMode('edit')
   draftTitle.value = current.value.title || ''
   draftContent.value = current.value.content || ''
   contentPage.value = 0
   nextTick(() => titleInputRef.value?.focus())
+  await fetchWeatherForEntry(entryId)
 }
 
 async function saveDraft() {
@@ -624,6 +626,8 @@ async function saveDraft() {
         title,
         content: draftContent.value,
         date: entry.date,
+        location: entry.location,
+        weather: entry.weather,
       })
     }
 
