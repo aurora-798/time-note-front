@@ -1,7 +1,10 @@
 import { ref, nextTick } from 'vue'
-import { chat } from '@/api/assistant'
+import { ElMessage } from 'element-plus'
+import router from '@/router'
+import { chatStream } from '@/api/assistant'
 import { detectMessageMode } from '@/services/assistant'
 import { useUserStore } from '@/store/user'
+import { beginAuthRedirect } from '@/utils/auth'
 
 let idCounter = 0
 function nextId() {
@@ -29,6 +32,7 @@ export function useAssistantChat() {
   const isLoading = ref(false)
   const listRef = ref(null)
   let abortController = null
+  let scrollRaf = null
 
   async function scrollToBottom() {
     await nextTick()
@@ -36,10 +40,36 @@ export function useAssistantChat() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
+  function scheduleScrollToBottom() {
+    if (scrollRaf) return
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null
+      scrollToBottom()
+    })
+  }
+
+  function handleAuthError(message) {
+    if (!beginAuthRedirect()) return
+    userStore.logout()
+    if (router.currentRoute.value.path !== '/login') {
+      const redirect = router.currentRoute.value.fullPath
+      router.replace({
+        path: '/login',
+        query: redirect && redirect !== '/login' ? { redirect } : undefined,
+      })
+    }
+    ElMessage.error(message || '请先登录')
+  }
+
   async function sendMessage(text, files = []) {
     const trimmed = text.trim()
     if (!trimmed && files.length === 0) return
     if (isLoading.value) return
+
+    if (!userStore.userId) {
+      ElMessage.warning('请先登录后再使用 AI 助手')
+      return
+    }
 
     const images = files.length > 0 ? await readFilesAsDataUrls(files) : []
     const mode = detectMessageMode(trimmed)
@@ -72,18 +102,34 @@ export function useAssistantChat() {
     abortController = new AbortController()
 
     try {
-      const data = await chat(
+      await chatStream(
         {
-          userId: userStore.userId != null ? String(userStore.userId) : '',
+          userId: String(userStore.userId),
           userMessage: trimmed,
         },
-        { signal: abortController.signal },
+        {
+          signal: abortController.signal,
+          onChunk: (chunk) => {
+            messages.value[assistantIndex].content += chunk
+            scheduleScrollToBottom()
+          },
+        },
       )
-      messages.value[assistantIndex].content = data?.result || ''
-      await scrollToBottom()
+
+      if (!messages.value[assistantIndex].content) {
+        messages.value[assistantIndex].content = '（暂无回复内容）'
+      }
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        messages.value[assistantIndex].content = '（回复生成出错，请稍后再试。）'
+      if (err?.name === 'AbortError') {
+        // 用户主动停止，保留已生成内容
+      } else if (err?.code === 'UNAUTHORIZED' || err?.status === 401 || err?.status === 403) {
+        handleAuthError(err.message)
+        messages.value[assistantIndex].content = '（登录已过期，请重新登录后再试。）'
+      } else {
+        if (!messages.value[assistantIndex].content) {
+          messages.value[assistantIndex].content = '（回复生成出错，请稍后再试。）'
+        }
+        ElMessage.error(err?.message || 'AI 回复失败')
       }
     } finally {
       messages.value[assistantIndex].streaming = false

@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import ImageViewDialog from './ImageViewDialog.vue'
+import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
 
 defineProps({
   message: {
@@ -26,7 +27,18 @@ const previewUrl = ref(null)
         />
       </div>
       <div class="msg-text">
-        {{ message.content }}<span v-if="message.streaming" class="stream-cursor" />
+        <MarkdownViewer
+          v-if="message.role === 'assistant' && message.content && !message.streaming"
+          :content="message.content"
+          compact
+        />
+        <template v-else-if="message.role === 'assistant'">
+          <span v-if="message.content" class="stream-plain">{{ message.content }}</span>
+          <span v-if="message.streaming" class="stream-cursor" />
+        </template>
+        <template v-else>
+          {{ message.content }}<span v-if="message.streaming" class="stream-cursor" />
+        </template>
       </div>
     </div>
   </div>
@@ -53,7 +65,6 @@ const previewUrl = ref(null)
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
-  white-space: pre-wrap;
 }
 
 .chat-message.user .bubble {
@@ -62,6 +73,7 @@ const previewUrl = ref(null)
   border-bottom-right-radius: 4px;
   box-shadow: var(--bubble-shadow-user);
   border: 1px solid var(--bubble-border-user);
+  white-space: pre-wrap;
 }
 
 .chat-message.assistant .bubble {
@@ -92,6 +104,15 @@ const previewUrl = ref(null)
 
 .msg-text {
   min-height: 1em;
+}
+
+.msg-text :deep(.markdown-body) {
+  white-space: normal;
+}
+
+.stream-plain {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .stream-cursor {

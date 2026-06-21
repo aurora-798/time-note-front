@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue'
-import { Sparkles } from 'lucide-vue-next'
 import { useAssistantChat } from '@/composables/useAssistantChat'
 import ChatMessageList from '@/components/assistant/ChatMessageList.vue'
 import AiPromptBox from '@/components/assistant/AiPromptBox.vue'
@@ -16,18 +15,6 @@ function onSend(text, files) {
 
 <template>
   <div class="assistant-page">
-    <header class="assistant-header">
-      <div class="header-icon">
-        <Sparkles :size="22" />
-      </div>
-      <div class="header-text">
-        <h1 class="header-title">AI 助手</h1>
-        <p v-if="isEmpty" class="header-sub">
-          你好，我是时光笔录 AI 助手，可以帮你整理思绪、润色日记、回答问题。
-        </p>
-      </div>
-    </header>
-
     <div ref="listRef" class="messages-scroll">
       <div v-if="isEmpty" class="empty-hints">
         <div class="hint-card">
@@ -68,39 +55,6 @@ function onSend(text, files) {
   flex-direction: column;
   overflow: hidden;
   --input-float-bottom: 24px;
-}
-
-.assistant-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 24px 4px 12px;
-  flex-shrink: 0;
-}
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--gradient-primary);
-  color: #fff;
-  box-shadow: var(--shadow-pink);
-  flex-shrink: 0;
-}
-.header-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-}
-.header-sub {
-  margin: 6px 0 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-secondary);
 }
 
 .messages-scroll {
@@ -156,15 +110,6 @@ function onSend(text, files) {
 @media (max-width: 768px) {
   .assistant-page {
     --input-float-bottom: 16px;
-  }
-  .assistant-header {
-    padding: 4px 0 10px;
-  }
-  .header-title {
-    font-size: 19px;
-  }
-  .header-sub {
-    font-size: 13px;
   }
 }
 </style>

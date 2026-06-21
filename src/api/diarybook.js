@@ -25,7 +25,7 @@ export function getDiaryBook(bookId) {
   return request.post(`/api/diarybook/${bookId}`)
 }
 
-// 验证日记本密码
+// 验证日记本密码（失败由调用方提示，避免与全局拦截器重复弹窗）
 export function verifyDiaryBookPassword(data) {
-  return request.post('/api/diarybook/verify', data)
+  return request.post('/api/diarybook/verify', data, { skipErrorHandler: true })
 }

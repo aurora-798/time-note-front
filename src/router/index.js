@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/user'
+import { isTokenExpired } from '@/utils/auth'
 
 const routes = [
   {
@@ -63,6 +66,14 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('token')
+
+  if (token && isTokenExpired(token)) {
+    const userStore = useUserStore()
+    userStore.logout()
+    ElMessage.error('登录已过期，请重新登录')
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
   if (!to.meta.public && !token) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }

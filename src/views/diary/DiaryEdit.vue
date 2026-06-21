@@ -549,6 +549,11 @@ onMounted(() => {
   padding: 4px 26px 26px;
   overflow-y: auto;
 }
+.md-preview-wrap .markdown-body {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--tn-text);
+}
 .preview-empty {
   color: var(--tn-text-faint);
   font-size: 14px;
@@ -690,80 +695,6 @@ onMounted(() => {
   transform: translateY(-2px);
   background-position: 100% 0;
   box-shadow: var(--tn-glow-strong);
-}
-
-/* Markdown 渲染样式 */
-.markdown-body {
-  font-size: 15px;
-  line-height: 1.9;
-  color: var(--tn-text);
-  word-break: break-word;
-}
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) {
-  font-weight: 700;
-  margin: 1.2em 0 0.6em;
-  color: var(--tn-text);
-}
-.markdown-body :deep(h1) {
-  font-size: 1.6em;
-}
-.markdown-body :deep(h2) {
-  font-size: 1.35em;
-}
-.markdown-body :deep(h3) {
-  font-size: 1.15em;
-}
-.markdown-body :deep(p) {
-  margin: 0.7em 0;
-}
-.markdown-body :deep(blockquote) {
-  margin: 0.9em 0;
-  padding: 6px 16px;
-  border-left: 3px solid var(--tn-aurora-1);
-  background: var(--tn-glass-strong);
-  border-radius: 0 8px 8px 0;
-  color: var(--tn-text-soft);
-}
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) {
-  padding-left: 1.6em;
-  margin: 0.7em 0;
-}
-.markdown-body :deep(li) {
-  margin: 0.3em 0;
-}
-.markdown-body :deep(code) {
-  padding: 2px 6px;
-  font-size: 0.9em;
-  background: var(--tn-glass-strong);
-  border-radius: 5px;
-}
-.markdown-body :deep(pre) {
-  padding: 14px 16px;
-  margin: 0.9em 0;
-  overflow-x: auto;
-  background: var(--tn-glass-strong);
-  border: 1px solid var(--tn-glass-border);
-  border-radius: 10px;
-}
-.markdown-body :deep(pre code) {
-  padding: 0;
-  background: transparent;
-}
-.markdown-body :deep(img) {
-  max-width: 100%;
-  border-radius: 12px;
-  margin: 0.6em 0;
-}
-.markdown-body :deep(a) {
-  color: var(--tn-aurora-1);
-}
-.markdown-body :deep(hr) {
-  border: none;
-  border-top: 1px solid var(--tn-border);
-  margin: 1.4em 0;
 }
 
 @media (max-width: 768px) {

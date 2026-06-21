@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { login as loginApi } from '@/api/auth'
 import { getUserById, updateUser } from '@/api/user'
 import { clearBooksCache } from '@/services/notebooks'
+import { resetAuthRedirect } from '@/utils/auth'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -34,6 +35,7 @@ export const useUserStore = defineStore('user', () => {
       avatar: data.avatar || '',
     }
     persist()
+    resetAuthRedirect()
     return data
   }
 

@@ -14,6 +14,8 @@ import {
   formatNotebookDate,
 } from '@/services/notebooks'
 import { getWeather } from '@/api/diary'
+import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
+import { renderMarkdown } from '@/utils/markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,7 +52,6 @@ const tocPage = ref(0)
 const contentPage = ref(0)
 const contentPages = ref([''])
 const contentAreaHeight = ref(0)
-const entryContentRef = ref(null)
 const entryContentInputRef = ref(null)
 const entryContentSlotRef = ref(null)
 const titleInputRef = ref(null)
@@ -96,8 +97,44 @@ const contentAreaStyle = computed(() =>
 )
 const isEditing = computed(() => editMode.value !== null)
 
+/** 段落首行缩进：两个全角空格（≈ 2 个汉字宽） */
+const PARAGRAPH_INDENT = '\u3000\u3000'
+
+function onContentKeydown(e) {
+  if (e.isComposing) return
+  const ta = entryContentInputRef.value
+  if (!ta) return
+
+  if (e.key === 'Enter') {
+    if (e.shiftKey) return
+    e.preventDefault()
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const insert = `\n${PARAGRAPH_INDENT}`
+    draftContent.value = draftContent.value.slice(0, start) + insert + draftContent.value.slice(end)
+    nextTick(() => {
+      const pos = start + insert.length
+      ta.setSelectionRange(pos, pos)
+    })
+    return
+  }
+
+  // 首段第一字输入时自动加缩进
+  if (
+    draftContent.value === '' &&
+    e.key.length === 1 &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.altKey
+  ) {
+    e.preventDefault()
+    draftContent.value = PARAGRAPH_INDENT + e.key
+    nextTick(() => ta.setSelectionRange(PARAGRAPH_INDENT.length + 1, PARAGRAPH_INDENT.length + 1))
+  }
+}
+
 function contentMetrics() {
-  const el = entryContentRef.value || entryContentInputRef.value || entryContentSlotRef.value
+  const el = entryContentInputRef.value || entryContentSlotRef.value
   if (!el) return { lineHeight: 30 }
   const style = getComputedStyle(el)
   const fontSize = parseFloat(style.fontSize) || 15
@@ -124,13 +161,14 @@ function splitTextToPages(text, container, pageHeight) {
   const style = getComputedStyle(container)
   const maxHeight = height
   const measure = document.createElement('div')
+  measure.className = 'markdown-body'
   measure.style.cssText = [
     'position:fixed',
     'visibility:hidden',
     'pointer-events:none',
     'left:-9999px',
     'top:0',
-    'white-space:pre-wrap',
+    'white-space:normal',
     'word-break:break-word',
     `width:${width}px`,
     `font-size:${style.fontSize}`,
@@ -148,7 +186,7 @@ function splitTextToPages(text, container, pageHeight) {
     let best = 1
     while (lo <= hi) {
       const mid = Math.ceil((lo + hi) / 2)
-      measure.textContent = rest.slice(0, mid)
+      measure.innerHTML = renderMarkdown(rest.slice(0, mid))
       if (measure.scrollHeight <= maxHeight) {
         best = mid
         lo = mid + 1
@@ -166,12 +204,11 @@ function splitTextToPages(text, container, pageHeight) {
 function rebuildContentPages() {
   if (isEditing.value) return
   const slot = entryContentSlotRef.value
-  const content = entryContentRef.value
   if (!slot) return
   syncLineAlignedHeights()
   const pageHeight = contentAreaHeight.value || alignedContentHeight(slot)
   if (pageHeight <= 0) return
-  contentPages.value = splitTextToPages(current.value?.content || '', content || slot, pageHeight)
+  contentPages.value = splitTextToPages(current.value?.content || '', slot, pageHeight)
 }
 
 function syncLineAlignedHeights() {
@@ -200,7 +237,7 @@ function scheduleLayoutSync() {
 
 function bindLayoutObservers() {
   contentObserver?.disconnect()
-  const contentEl = entryContentSlotRef.value || entryContentRef.value
+  const contentEl = entryContentSlotRef.value
   if (contentEl) {
     contentObserver = new ResizeObserver(scheduleLayoutSync)
     contentObserver.observe(contentEl)
@@ -242,7 +279,13 @@ watch(filteredEntries, () => {
 })
 
 watch(editMode, (mode) => {
-  if (mode !== null) return
+  if (mode !== null) {
+    nextTick(() => {
+      bindLayoutObservers()
+      syncLineAlignedHeights()
+    })
+    return
+  }
   nextTick(() => {
     nextTick(() => {
       bindLayoutObservers()
@@ -566,7 +609,10 @@ async function writeNew() {
   enterEditMode('new')
   draftTitle.value = ''
   draftContent.value = ''
-  nextTick(() => titleInputRef.value?.focus())
+  nextTick(() => {
+    scheduleLayoutSync()
+    titleInputRef.value?.focus()
+  })
   await fetchWeatherForEntry(draft.id)
 }
 
@@ -577,7 +623,10 @@ async function editCurrent() {
   draftTitle.value = current.value.title || ''
   draftContent.value = current.value.content || ''
   contentPage.value = 0
-  nextTick(() => titleInputRef.value?.focus())
+  nextTick(() => {
+    scheduleLayoutSync()
+    titleInputRef.value?.focus()
+  })
   await fetchWeatherForEntry(entryId)
 }
 
@@ -779,16 +828,16 @@ onUnmounted(() => {
                   ref="entryContentInputRef"
                   v-model="draftContent"
                   class="entry-content-input"
-                  :style="contentAreaStyle"
-                  placeholder="这里用于书写笔记内容"
+                  placeholder="这里用于书写笔记内容，支持 Markdown 语法"
                   @click.stop
+                  @keydown="onContentKeydown"
                 />
-                <div
+                <MarkdownViewer
                   v-show="!isEditing"
-                  ref="entryContentRef"
                   class="entry-content"
                   :style="contentAreaStyle"
-                >{{ contentSlice }}</div>
+                  :content="contentSlice"
+                />
               </div>
             </template>
             <div v-else class="entry-empty" @click="writeNew">
@@ -817,9 +866,11 @@ onUnmounted(() => {
               <h3 class="entry-title">{{ current.title || '无标题' }}</h3>
             </div>
             <div class="entry-content-slot">
-              <div class="entry-content" :style="contentAreaStyle">
-                {{ contentPages[leafContentPage] || '' }}
-              </div>
+              <MarkdownViewer
+                class="entry-content"
+                :style="contentAreaStyle"
+                :content="contentPages[leafContentPage] || ''"
+              />
             </div>
           </div>
         </div>
@@ -1590,7 +1641,6 @@ onUnmounted(() => {
 }
 .entry-content,
 .entry-content-input {
-  flex: 0 0 auto;
   width: 100%;
   margin: 0;
   box-sizing: border-box;
@@ -1599,8 +1649,9 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 .entry-content {
+  flex: 0 0 auto;
   overflow: hidden;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   scrollbar-width: none;
 }
@@ -1608,6 +1659,8 @@ onUnmounted(() => {
   display: none;
 }
 .entry-content-input {
+  flex: 1;
+  min-height: 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -1617,6 +1670,8 @@ onUnmounted(() => {
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .entry-content-input::-webkit-scrollbar {
   display: none;
