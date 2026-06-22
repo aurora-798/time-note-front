@@ -4,11 +4,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
-import {
-  listNotebooks,
-  deleteNotebook,
-  verifyNotebookPassword,
-} from '@/services/notebooks'
+import { listNotebooks, deleteNotebook } from '@/services/notebooks'
+import { ensureNotebookAccess } from '@/services/notebookAccess'
 import NotebookCard from '@/components/diary/NotebookCard.vue'
 import CreateNotebookModal from '@/components/diary/CreateNotebookModal.vue'
 
@@ -33,22 +30,8 @@ async function reload({ refresh = false } = {}) {
 }
 
 async function openNotebook(nb) {
-  if (nb.encrypted) {
-    try {
-      const { value } = await ElMessageBox.prompt('请输入日记本密码', '输入密码', {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        inputType: 'password',
-      })
-      const ok = await verifyNotebookPassword(nb.id, value || '')
-      if (!ok) {
-        ElMessage.error('密码错误')
-        return
-      }
-    } catch {
-      return
-    }
-  }
+  const { ok } = await ensureNotebookAccess(nb.id, { notebook: nb })
+  if (!ok) return
   router.push(`/diary/book/${nb.id}`)
 }
 

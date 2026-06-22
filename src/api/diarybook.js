@@ -21,8 +21,9 @@ export function listDiaryBooks() {
 }
 
 // 根据 bookId 获取单个日记本
-export function getDiaryBook(bookId) {
-  return request.post(`/api/diarybook/${bookId}`)
+export function getDiaryBook(bookId, password) {
+  const body = password ? { password } : {}
+  return request.post(`/api/diarybook/${bookId}`, body)
 }
 
 // 验证日记本密码（失败由调用方提示，避免与全局拦截器重复弹窗）

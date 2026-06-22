@@ -27,8 +27,9 @@ export async function fetchAllDiaries(params = {}) {
 }
 
 // 根据日记本 ID 和日记 ID 查询单条日记
-export function getDiary(bookId, diaryId) {
-  return request.post(`/api/diary/${bookId}/${diaryId}`)
+export function getDiary(bookId, diaryId, password) {
+  const body = password ? { password } : {}
+  return request.post(`/api/diary/${bookId}/${diaryId}`, body)
 }
 
 // 根据 ID 查询日记（用于仅有 diaryId 的场景，通过分页接口查找）

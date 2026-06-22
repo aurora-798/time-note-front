@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ArrowRight, EditPen, Plus, Delete, Search, Check, Setting, Calendar } from '@element-plus/icons-vue'
 import {
-  resolveNotebook,
   listEntries,
   deleteEntry,
   saveEntry,
@@ -13,6 +12,7 @@ import {
   fontFamily,
   formatNotebookDate,
 } from '@/services/notebooks'
+import { ensureNotebookAccess } from '@/services/notebookAccess'
 import { getWeather } from '@/api/diary'
 import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
 import { renderMarkdown } from '@/utils/markdown'
@@ -313,11 +313,12 @@ const spineStyle = computed(() => {
 
 async function loadBook() {
   try {
-    book.value = await resolveNotebook(bookId)
-    if (!book.value) {
-      ElMessage.error('日记本不存在')
+    const { ok, notebook } = await ensureNotebookAccess(bookId)
+    if (!ok || !notebook) {
       router.replace('/diary')
+      return
     }
+    book.value = notebook
   } catch {
     ElMessage.error('加载日记本失败')
     router.replace('/diary')

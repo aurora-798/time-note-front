@@ -64,7 +64,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('token')
 
   if (token && isTokenExpired(token)) {
@@ -80,6 +80,14 @@ router.beforeEach((to) => {
   if (to.path === '/login' && token) {
     return { path: '/' }
   }
+
+  const bookId = to.params.bookId
+  if (bookId && to.path.startsWith('/diary/book/')) {
+    const { ensureNotebookAccess } = await import('@/services/notebookAccess')
+    const { ok } = await ensureNotebookAccess(bookId)
+    if (!ok) return { path: '/diary' }
+  }
+
   return true
 })
 

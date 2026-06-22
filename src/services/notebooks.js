@@ -7,6 +7,7 @@ import {
   verifyDiaryBookPassword,
 } from '@/api/diarybook'
 import { fetchAllDiaries, getDiary, addDiary, editDiary, deleteDiary } from '@/api/diary'
+import { getStoredBookPassword } from '@/services/notebookAccess'
 
 // —— 预设封面 ——
 const COVER_CDN_BASE = 'http://tgldl5vcp.hn-bkt.clouddn.com/cover'
@@ -58,6 +59,11 @@ function resolveCoverValue(coverType, cover) {
 function asId(value) {
   if (value == null || value === '') return value
   return String(value)
+}
+
+function withBookPassword(bookId, payload = {}) {
+  const password = getStoredBookPassword(bookId)
+  return password ? { ...payload, password } : payload
 }
 
 /** 解析后端时间字符串（如 2026-06-17 09:15） */
@@ -150,7 +156,8 @@ export async function listNotebooks({ refresh = false } = {}) {
 
 /** 按 id 拉取最新日记本（编辑后刷新等场景） */
 export async function getNotebook(id) {
-  const data = await getDiaryBook(id)
+  const bookId = asId(id)
+  const data = await getDiaryBook(bookId, getStoredBookPassword(bookId))
   return toFrontendBook(data, 0)
 }
 
@@ -213,7 +220,8 @@ export async function verifyNotebookPassword(id, password) {
 
 /** 获取某日记本下所有日记（按标准 pageSize 分页循环拉取） */
 export async function listEntries(bookId) {
-  const records = await fetchAllDiaries({ bookId: asId(bookId) })
+  const id = asId(bookId)
+  const records = await fetchAllDiaries(withBookPassword(id, { bookId: id }))
   return records
     .map(toFrontendEntry)
     .sort((a, b) => b.createTime - a.createTime)
@@ -221,7 +229,8 @@ export async function listEntries(bookId) {
 
 /** 获取单篇日记 */
 export async function getEntry(bookId, entryId) {
-  const data = await getDiary(bookId, entryId)
+  const id = asId(bookId)
+  const data = await getDiary(id, entryId, getStoredBookPassword(id))
   // getDiary 返回 SysDiaryFindVo（不含 id/bookId），用请求参数补全
   return toFrontendEntry({
     ...data,
@@ -232,9 +241,10 @@ export async function getEntry(bookId, entryId) {
 
 /** 保存日记（新建或编辑） */
 export async function saveEntry(bookId, entry) {
+  const id = asId(bookId)
   if (entry.id && !String(entry.id).startsWith('local-')) {
-    await editDiary({
-      bookId: asId(bookId),
+    await editDiary(withBookPassword(id, {
+      bookId: id,
       id: asId(entry.id),
       title: entry.title || '',
       content: entry.content || '',
@@ -242,27 +252,28 @@ export async function saveEntry(bookId, entry) {
       adm2: entry.location?.district || '',
       text: entry.weather?.condition || '',
       temp: entry.weather?.temperature != null ? String(entry.weather.temperature) : '',
-    })
+    }))
     return { ...entry, id: asId(entry.id) }
   }
 
   // 新建日记（后端不返回新记录详情，由调用方决定是否刷新列表）
-  await addDiary({
-    bookId: asId(bookId),
+  await addDiary(withBookPassword(id, {
+    bookId: id,
     title: entry.title || '',
     content: entry.content || '',
     name: entry.location?.city || '',
     adm2: entry.location?.district || '',
     text: entry.weather?.condition || '',
     temp: entry.weather?.temperature != null ? String(entry.weather.temperature) : '',
-  })
+  }))
 
   clearBooksCache()
 }
 
 /** 删除日记 */
 export async function deleteEntry(bookId, entryId) {
-  await deleteDiary({ id: asId(entryId) })
+  const id = asId(bookId)
+  await deleteDiary(withBookPassword(id, { id: asId(entryId) }))
   clearBooksCache()
 }
 

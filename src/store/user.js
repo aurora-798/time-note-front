@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { login as loginApi } from '@/api/auth'
 import { getUserById, updateUser } from '@/api/user'
 import { clearBooksCache } from '@/services/notebooks'
+import { clearBookAccess } from '@/services/notebookAccess'
 import { resetAuthRedirect } from '@/utils/auth'
 
 export const useUserStore = defineStore('user', () => {
@@ -25,6 +26,7 @@ export const useUserStore = defineStore('user', () => {
   async function login(credentials) {
     const data = await loginApi(credentials)
     clearBooksCache()
+    clearBookAccess()
     token.value = data.token
     userId.value = data.userId
     profile.value = {
@@ -57,6 +59,7 @@ export const useUserStore = defineStore('user', () => {
 
   function logout() {
     clearBooksCache()
+    clearBookAccess()
     token.value = ''
     userId.value = null
     profile.value = null

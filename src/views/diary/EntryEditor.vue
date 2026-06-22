@@ -3,12 +3,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Back, Picture, VideoCamera, Check, Close } from '@element-plus/icons-vue'
-import {
-  resolveNotebook,
-  getEntry,
-  saveEntry,
-  fontFamily,
-} from '@/services/notebooks'
+import { getEntry, saveEntry, fontFamily } from '@/services/notebooks'
+import { ensureNotebookAccess } from '@/services/notebookAccess'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,12 +33,12 @@ const wordCount = computed(() => form.content.replace(/\s/g, '').length)
 
 async function load() {
   try {
-    book.value = await resolveNotebook(bookId)
-    if (!book.value) {
-      ElMessage.error('日记本不存在')
+    const { ok, notebook } = await ensureNotebookAccess(bookId)
+    if (!ok || !notebook) {
       router.replace('/diary')
       return
     }
+    book.value = notebook
     if (isEdit.value) {
       const e = await getEntry(bookId, entryId)
       if (e) Object.assign(form, { ...e })
