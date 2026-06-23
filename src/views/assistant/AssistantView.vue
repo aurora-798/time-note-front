@@ -2,9 +2,21 @@
 import { computed } from 'vue'
 import { useAssistantChat } from '@/composables/useAssistantChat'
 import ChatMessageList from '@/components/assistant/ChatMessageList.vue'
+import ChatSessionSidebar from '@/components/assistant/ChatSessionSidebar.vue'
 import AiPromptBox from '@/components/assistant/AiPromptBox.vue'
 
-const { messages, isLoading, listRef, sendMessage, stopGeneration } = useAssistantChat()
+const {
+  messages,
+  sessions,
+  sessionId,
+  isLoading,
+  listRef,
+  sendMessage,
+  stopGeneration,
+  startNewChat,
+  switchSession,
+  removeSession,
+} = useAssistantChat()
 
 const isEmpty = computed(() => messages.value.length === 0)
 
@@ -14,43 +26,63 @@ function onSend(text, files) {
 </script>
 
 <template>
-  <div class="assistant-page">
-    <div ref="listRef" class="messages-scroll">
-      <div v-if="isEmpty" class="empty-hints">
-        <div class="hint-card">
-          <span class="hint-emoji">✍️</span>
-          <span>帮我润色今天的日记</span>
-        </div>
-        <div class="hint-card">
-          <span class="hint-emoji">💭</span>
-          <span>聊聊最近的心情</span>
-        </div>
-        <div class="hint-card">
-          <span class="hint-emoji">📔</span>
-          <span>给这段文字起个标题</span>
-        </div>
-      </div>
-      <ChatMessageList v-else :messages="messages" />
-    </div>
+  <div class="assistant-layout">
+    <ChatSessionSidebar
+      :sessions="sessions"
+      :active-session-id="sessionId"
+      :disabled="isLoading"
+      @new-chat="startNewChat"
+      @select="switchSession"
+      @delete="removeSession"
+    />
 
-    <div class="input-area">
-      <AiPromptBox
-        :is-loading="isLoading"
-        @send="onSend"
-        @stop="stopGeneration"
-      />
+    <div class="assistant-page">
+      <div ref="listRef" class="messages-scroll">
+        <div v-if="isEmpty" class="empty-hints">
+          <div class="hint-card">
+            <span class="hint-emoji">✍️</span>
+            <span>帮我润色今天的日记</span>
+          </div>
+          <div class="hint-card">
+            <span class="hint-emoji">💭</span>
+            <span>聊聊最近的心情</span>
+          </div>
+          <div class="hint-card">
+            <span class="hint-emoji">📔</span>
+            <span>给这段文字起个标题</span>
+          </div>
+        </div>
+        <ChatMessageList v-else :messages="messages" />
+      </div>
+
+      <div class="input-area">
+        <AiPromptBox
+          :is-loading="isLoading"
+          @send="onSend"
+          @stop="stopGeneration"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.assistant-page {
-  position: relative;
+.assistant-layout {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
+  display: flex;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.assistant-page {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -105,6 +137,13 @@ function onSend(text, files) {
   bottom: var(--input-float-bottom);
   padding: 0 4px;
   z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .assistant-layout {
+    flex-direction: column;
+    max-width: 720px;
+  }
 }
 
 @media (max-width: 768px) {

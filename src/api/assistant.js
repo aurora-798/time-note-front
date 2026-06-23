@@ -1,9 +1,12 @@
 import { API_BASE } from '@/utils/url'
 import { isTokenExpired } from '@/utils/auth'
+import request from '@/utils/request'
+
+export const SESSION_STORAGE_KEY = 'assistant_session_id'
+export const SESSION_HEADER = 'X-Chat-Session-Id'
 
 /**
  * 从 SSE 缓冲区解析完整事件，返回 { events, rest }
- * 兼容 Spring WebFlux Flux<String>（data: xxx\n\n）及纯文本流
  */
 export function parseSSEBuffer(buffer) {
   const events = []
@@ -38,31 +41,19 @@ export function parseSSEBuffer(buffer) {
   return { events, rest }
 }
 
-/**
- * AI 助手对话（SSE 流式）：GET /api/chat
- * @param {{ userId: string, userMessage: string }} params
- * @param {{ signal?: AbortSignal, onChunk?: (text: string) => void }} options
- */
-export async function chatStream({ userId, userMessage }, { signal, onChunk } = {}) {
+function authHeaders() {
   const token = localStorage.getItem('token') || ''
   if (token && isTokenExpired(token)) {
     throw Object.assign(new Error('登录已过期，请重新登录'), { code: 'UNAUTHORIZED' })
   }
+  return {
+    Accept: 'text/event-stream',
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
 
-  const params = new URLSearchParams({
-    userId: userId ?? '',
-    userMessage: userMessage ?? '',
-  })
-
-  const res = await fetch(`${API_BASE}/api/chat?${params}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    signal,
-  })
-
+async function consumeSseResponse(res, onChunk) {
   if (!res.ok) {
     const err = new Error(
       res.status === 401 || res.status === 403
@@ -114,4 +105,66 @@ export async function chatStream({ userId, userMessage }, { signal, onChunk } = 
   } finally {
     reader.releaseLock()
   }
+}
+
+/**
+ * 单轮聊天（GET，向后兼容）
+ */
+export async function chatStream({ userId, userMessage }, { signal, onChunk } = {}) {
+  const token = localStorage.getItem('token') || ''
+  if (token && isTokenExpired(token)) {
+    throw Object.assign(new Error('登录已过期，请重新登录'), { code: 'UNAUTHORIZED' })
+  }
+
+  const params = new URLSearchParams({
+    userId: userId ?? '',
+    userMessage: userMessage ?? '',
+  })
+
+  const res = await fetch(`${API_BASE}/api/chat?${params}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal,
+  })
+
+  await consumeSseResponse(res, onChunk)
+}
+
+/**
+ * 多轮 RAG 聊天（POST SSE）
+ * @returns {Promise<{ sessionId: string | null }>}
+ */
+export async function chatStreamPost(
+  { userId, userMessage, sessionId },
+  { signal, onChunk } = {},
+) {
+  const res = await fetch(`${API_BASE}/api/chat`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      userId: userId ?? '',
+      userMessage: userMessage ?? '',
+      sessionId: sessionId ?? undefined,
+    }),
+    signal,
+  })
+
+  const newSessionId = res.headers.get(SESSION_HEADER)
+  await consumeSseResponse(res, onChunk)
+  return { sessionId: newSessionId }
+}
+
+export function fetchSessionList(userId) {
+  return request.get('/api/chat/sessions', { params: { userId } })
+}
+
+export function fetchSessionMessages(userId, sessionId) {
+  return request.get(`/api/chat/sessions/${sessionId}/messages`, { params: { userId } })
+}
+
+export function deleteSession(userId, sessionId) {
+  return request.delete(`/api/chat/sessions/${sessionId}`, { params: { userId } })
 }

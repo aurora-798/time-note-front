@@ -130,3 +130,5 @@ export async function mockAssistantStream({ text, files = [] }, { onChunk, signa
 export function detectMessageMode(text) {
   return parseUserMessage(text).mode
 }
+
+export { parseUserMessage }
